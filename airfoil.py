@@ -1,6 +1,6 @@
 import sys
 from math import nan, inf, pi, radians, degrees, sqrt, sin, cos, tan, atan, floor, ceil
-from numpy import linspace, arange
+from numpy import linspace, arange, zeros
 from scipy import interpolate, integrate
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -251,7 +251,6 @@ class Airfoil:
         fg = plt.figure(figsize=(13, 6))  # размер в дюймах
         gs = fg.add_gridspec(1, 3)  # строки, столбцы
 
-
         fg.add_subplot(gs[0, 0])  # позиция графика
         plt.title('Initial data')
         plt.grid(False)  # сетка
@@ -479,9 +478,9 @@ class Grate:
         '''
 
         # kind='cubic' необходим для гладкости производной
-        Fd = interpolate.interp1d(self.coords['d']['x'], list(y + self.__t_b / 2 for y in self.coords['d']['y']),
+        Fd = interpolate.interp1d(self.coords['d']['x'], [y + self.__t_b / 2 for y in self.coords['d']['y']],
                                   kind='cubic', fill_value='extrapolate')
-        Fu = interpolate.interp1d(self.coords['u']['x'], list(y - self.__t_b / 2 for y in self.coords['u']['y']),
+        Fu = interpolate.interp1d(self.coords['u']['x'], [y - self.__t_b / 2 for y in self.coords['u']['y']],
                                   kind='cubic', fill_value='extrapolate')
 
         xgmin = min(self.coords['u']['x'] + self.coords['d']['x']) + self.__airfoil.r_inlet_b
@@ -537,8 +536,9 @@ class Grate:
                 dd = dist((xdt, ydt), (xd[i], yd[i])) * 2
                 du = dist((xdt, ydt), (xu[j], yu[j])) * 2
 
-                if abs(eps('rel', dd, du)) < epsilon and ygmin < ydt < ygmax and xgmin <= xdt <= xgmax:
-                    epsilon = abs(eps('rel', dd, du))
+                abs_eps_rel = abs(eps('rel', dd, du))
+                if abs_eps_rel < epsilon and ygmin < ydt < ygmax and xgmin <= xdt <= xgmax:
+                    epsilon = abs_eps_rel
                     D = (dd + du) / 2
                     XDT, YDT = xdt, ydt
                     jt = j
@@ -549,10 +549,15 @@ class Grate:
                 self.yd.append(YDT)
                 j0 = jt
 
-        self.r = [0]
+        '''self.r = [0]
         for i in range(len(self.d) - 1):
-            self.r.append(self.r[i] + dist((self.xd[i], self.yd[i]), (self.xd[i + 1], self.yd[i + 1])))
-        self.__props = {(self.xd[i], self.yd[i]): self.d[i] for i in range(len(self.d))}
+            self.r.append(self.r[i] + dist((self.xd[i], self.yd[i]), (self.xd[i + 1], self.yd[i + 1])))'''
+
+        self.r = zeros(len(self.d))
+        for i in range(1, len(self.d)):
+            self.r[i] = self.r[i - 1] + dist((self.xd[i - 1], self.yd[i - 1]), (self.xd[i], self.yd[i]))
+
+        self.__props = {tuple((self.xd[i], self.yd[i])): self.d[i] for i in range(len(self.d))}
 
         return self.__props
 
