@@ -1,4 +1,6 @@
 import sys
+from tqdm import tqdm
+
 from math import nan, inf, pi, radians, degrees, sqrt, sin, cos, tan, atan, floor, ceil
 from numpy import linspace, arange, zeros
 from scipy import interpolate, integrate
@@ -11,11 +13,10 @@ from curves import BernsteinCurve
 
 sys.path.append('D:/Programming/Python')
 
-from tools import export2, isnum, COOR, Axis, angle, rounding, eps, dist, dist2line
+from tools import export2, isnum, COOR, LINE, Axis, angle, rounding, eps, dist, dist2line
 from decorators import timeit
 
 import cProfile
-from numba import njit
 
 
 class Airfoil:
@@ -246,6 +247,45 @@ class Airfoil:
         return {'u': {'x': xun, 'y': yun},
                 'd': {'x': xdn, 'y': ydn}}
 
+    def find_r(self) -> tuple[float, float]:
+        """Поиск радиусов окружностей входной и выходной кромок"""
+        if hasattr(self, "r_inlet_b") and hasattr(self, "r_outlet_b"): return self.r_inlet_b, self.r_outlet_b
+
+        Fu = interpolate.interp1d(*self.coords['u'].values(), kind='quadratic', fill_value='extrapolate')
+        Fd = interpolate.interp1d(*self.coords['d'].values(), kind='quadratic', fill_value='extrapolate')
+
+        dx = 0.000001
+
+        x0, x1 = 0, 1
+        y0, y1 = Fu(x0), Fu(x1)
+
+        x0u, x1u = dx, 1 - dx
+        y0u, y1u = Fu(x0u), Fu(x1u)
+
+        x0d, x1d = dx, 1 - dx
+        y0d, y1d = Fd(x0d), Fd(x1d)
+
+        A0u, B0u, C0u = LINE((x0, y0), (x0u, y0u))
+        A0d, B0d, C0d = LINE((x0, y0), (x0d, y0d))
+        A1u, B1u, C1u = LINE((x1, y1), (x1u, y1u))
+        A1d, B1d, C1d = LINE((x1, y1), (x1d, y1d))
+
+        # A для перпендикуляров
+        AA0u, AA0d = -1 / A0u, -1 / A0d
+        AA1u, AA1d = -1 / A1u, -1 / A1d
+
+        # С для перпендикуляров
+        CC0u, CC0d = y0u - AA0u * x0u, y0d - AA0d * x0d
+        CC1u, CC1d = y1u - AA1u * x1u, y1d - AA1d * x1d
+
+        x_inlet, y_inlet = COOR(AA0u, CC0u, AA0d, CC0d)
+        x_outlet, y_outlet = COOR(AA1u, CC1u, AA1d, CC1d)
+
+        self.r_inlet_b = abs(x_inlet - x0)
+        self.r_outlet_b = abs(x_outlet - x1)
+
+        return self.r_inlet_b, self.r_outlet_b
+
     def show(self, what='all'):
         """Построение профиля"""
         fg = plt.figure(figsize=(13, 6))  # размер в дюймах
@@ -287,6 +327,10 @@ class Airfoil:
             y_outlet.append(self.r_outlet_b * sin(alpha) - self.r_outlet_b * self.__k_outlet)
         plt.plot(x_inlet, y_inlet, ls='-', color='black', linewidth=1)
         plt.plot(x_outlet, y_outlet, ls='-', color='black', linewidth=1)
+        # plt.text(0, 0, f'{self.r_inlet_b}')
+        # plt.text(1, 0, f'{self.r_outlet_b}')
+        # plt.arrow(self.r_inlet_b, 0, 0, 0.1, length_includes_head=True, color='black',alpha=1, label='R')
+        # plt.annotate('General direction', xy=(0.4, 0.7))
 
         fg.add_subplot(gs[0, 2])  # позиция графика
         plt.title('AIRFOIL')
@@ -386,7 +430,7 @@ class Grate:
         if (type(t_b) is float or type(t_b) is int) and t_b > 0:
             self.__t_b = t_b
         else:
-            print(Fore.RED + f't_b is float or int > 0!')
+            print(Fore.RED + f't_b is float or int > 0!' + Fore.RESET)
 
     @t_b.deleter
     def t_b(self):
@@ -401,7 +445,7 @@ class Grate:
         if type(gamma) is float or type(gamma) is int:
             self.__gamma = gamma
         else:
-            print(Fore.RED + f'gamma is float or int!')
+            print(Fore.RED + f'gamma is float or int!' + Fore.RESET)
 
     @gamma.deleter
     def gamma(self):
@@ -520,7 +564,7 @@ class Grate:
             x += epsrel ** 2 * cosfromtan(dfdx(x, Fd))
 
         j0 = 0  # начальный индекс искомого перпендикуляра
-        for i in range(len(Ld)):
+        for i in tqdm(range(len(Ld))):
             epsilon = inf
             for j in range(j0, len(Lu)):
 
@@ -563,7 +607,7 @@ class Grate:
 
     def show(self):
         if not self.__props: self.properties
-        fg = plt.figure(figsize=(12, 9))  # размер в дюймах
+        fg = plt.figure(figsize=(12, 6))  # размер в дюймах
         gs = fg.add_gridspec(1, 2)  # строки, столбца
 
         fg.add_subplot(gs[0, 0])  # позиция графика
@@ -788,6 +832,7 @@ if __name__ == '__main__':
 
     airfoil.solve()
     airfoil.show()
+    print(airfoil.find_r())
 
     print(airfoil.to_dataframe(bears='pandas'))
     # print(airfoil.to_dataframe(bears='polars'))
