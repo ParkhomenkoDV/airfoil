@@ -22,6 +22,7 @@ import cProfile
 
 class Airfoil:
     """Относительный аэродинамический профиль"""
+
     rnd = 4  # количество значащих цифр
     __Nrecomend = 20  # рекомендуемое количество дискретных точек
 
@@ -42,7 +43,7 @@ class Airfoil:
     @method.setter
     def method(self, method) -> None:
         self.reset()
-        if type(method) is str and method:
+        if type(method) is str and method.strip():
             self.__method = method.strip()
         else:
             print(Fore.RED + f'method is str in []!' + Fore.RESET)
@@ -173,6 +174,11 @@ class Airfoil:
             self.coords['d']['x'].append(x + yc * sin(tetta))
             self.coords['d']['y'].append(yf - yc * cos(tetta))
 
+        min_coord = min(self.coords['u']['x'] + self.coords['d']['x'])
+        max_coord = max(self.coords['u']['x'] + self.coords['d']['x'])
+        scale = abs(max_coord - min_coord)
+        self.transform(x0=min_coord, scale=1 / scale, inplace=True)
+        # TODO: отнести свои точки к спинке и корыту
         self.find_circles()
 
     def BMSTU(self):
@@ -496,7 +502,7 @@ class Airfoil:
 
 class Grate:
 
-    def __init__(self, airfoil, gamma: float, t_b: float = 1.0, N: int = 20):
+    def __init__(self, airfoil, gamma: float, t_b: int | float = 1.0, N: int = 20):
         self.__airfoil = airfoil
         self.__t_b = t_b  # относительный шаг []
         self.__gamma = gamma  # угол установки [рад]
@@ -510,7 +516,7 @@ class Grate:
 
     @t_b.setter
     def t_b(self, t_b):
-        if (type(t_b) is float or type(t_b) is int) and t_b > 0:
+        if type(t_b) in (int, float) and t_b > 0:
             self.__t_b = t_b
         else:
             print(Fore.RED + f't_b is float or int > 0!' + Fore.RESET)
@@ -838,9 +844,6 @@ def show(show='all', savefig=False):
              list((d[i + 1] - d[i]) / (rd[i + 1] - rd[i]) for i in range(len(rd) - 1)),
              ls='-', color=(1, 0, 0))
 
-    # plt.draw()
-    # plt.pause(1)
-    # plt.waitforbuttonpress()
     export2file(plt, file_path='exports/airfoil',
                 file_name='airfoil' +
                           '_' + 'xf' + str(rounding(initial_data['xf'], rnd)) +
