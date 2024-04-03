@@ -2,9 +2,9 @@ import sys
 from tqdm import tqdm
 from colorama import Fore
 
-from math import nan, inf, pi, radians, degrees, sqrt, sin, cos, tan, atan, floor, ceil
+from math import radians, degrees, sqrt, floor, ceil
 import numpy as np
-from numpy import linspace, arange
+from numpy import linspace, arange, nan, inf, pi, cos, sin, tan, arctan
 from scipy import interpolate, integrate
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -24,7 +24,7 @@ class Airfoil:
     """Относительный аэродинамический профиль"""
 
     rnd = 4  # количество значащих цифр
-    __Nrecomend = 20  # рекомендуемое количество дискретных точек
+    __Nrecomend = 30  # рекомендуемое количество дискретных точек
 
     def __init__(self, method: str, N: int = __Nrecomend):
         self.__method = method  # метод построения аэродинамического профиля
@@ -143,42 +143,49 @@ class Airfoil:
     def NACA(self, closed=True):
         self.coords['u'], self.coords['d'] = {'x': [], 'y': []}, {'x': [], 'y': []}
 
-        for i in range(self.__N):
-            betta = i * pi / (2 * (self.__N - 1))
-            x = 1 - cos(betta)
+        i = arange(self.__N)
+        betta = i * pi / (2 * (self.__N - 1))
+        x = 1 - np.cos(betta)
 
-            yf = self.f_b
-            if 0 <= x <= self.xf_b:
-                yf *= self.xf_b ** (-2) * (2 * self.xf_b * x - x ** 2)
-            else:
-                yf *= (1 - self.xf_b) ** (-2) * (1 - 2 * self.xf_b + 2 * self.xf_b * x - x ** 2)
+        mask = (0 <= x) & (x <= self.xf_b)
 
-            gradYf = 2 * self.f_b
-            if 0 <= x <= self.xf_b:
-                gradYf *= self.xf_b ** (-2) * (self.xf_b - x)
-            else:
-                gradYf *= (1 - self.xf_b) ** (-2) * (self.xf_b - x)
+        yf = np.full_like(i, self.f_b, dtype=np.float64)
+        yf[mask] *= self.xf_b ** (-2) * (2 * self.xf_b * x[mask] - x[mask] ** 2)
+        yf[~mask] *= (1 - self.xf_b) ** (-2) * (1 - 2 * self.xf_b + 2 * self.xf_b * x[~mask] - x[~mask] ** 2)
 
-            a = [0.2969, -0.126, -0.3516, 0.2843]
-            if closed:
-                a.append(-0.1036)
-            else:
-                a.append(-0.1015)
+        gradYf = 2 * self.f_b
 
-            yc = self.c_b / 0.2 * (a[0] * sqrt(x) + a[1] * x + a[2] * x ** 2 + a[3] * x ** 3 + a[4] * x ** 4)
+        a = np.array([0.2969, -0.126, -0.3516, 0.2843, -0.1036 if closed else -0.1015])
 
-            tetta = atan(gradYf)
+        yc = self.c_b / 0.2 * np.dot(a, np.column_stack((np.sqrt(x), x, x ** 2, x ** 3, x ** 4)).T)
 
-            self.coords['u']['x'].append(x - yc * sin(tetta))
-            self.coords['u']['y'].append(yf + yc * cos(tetta))
-            self.coords['d']['x'].append(x + yc * sin(tetta))
-            self.coords['d']['y'].append(yf - yc * cos(tetta))
+        tetta = np.arctan(gradYf)
 
-        min_coord = min(self.coords['u']['x'] + self.coords['d']['x'])
-        max_coord = max(self.coords['u']['x'] + self.coords['d']['x'])
+        sin_tetta, cos_tetta = np.sin(tetta), np.cos(tetta)  # предварительный расчет для ускорения работы
+
+        self.coords['u']['x'], self.coords['u']['y'] = x - yc * sin_tetta, yf + yc * cos_tetta
+        self.coords['d']['x'], self.coords['d']['y'] = x + yc * sin_tetta, yf - yc * cos_tetta
+
+        min_coord = min(np.min(self.coords['u']['x']), np.min(self.coords['d']['x']))
+        max_coord = max(np.max(self.coords['u']['x']), np.max(self.coords['d']['x']))
         scale = abs(max_coord - min_coord)
         self.transform(x0=min_coord, scale=1 / scale, inplace=True)
-        # TODO: отнести свои точки к спинке и корыту
+
+        # отсечка значений спинки корыту и наоборот
+        Xu = (self.coords['u']['x'][self.coords['u']['x'].index(min(self.coords['u']['x'])):] +
+              list(reversed(self.coords['d']['x'][
+                            self.coords['d']['x'].index(max(self.coords['d']['x'])):len(self.coords['d']['x']) - 1])))
+        Yu = (self.coords['u']['y'][self.coords['u']['x'].index(min(self.coords['u']['x'])):] +
+              list(reversed(self.coords['d']['y'][
+                            self.coords['d']['x'].index(max(self.coords['d']['x'])):len(self.coords['d']['x']) - 1])))
+        Xd = list(reversed(self.coords['u']['x'][1:self.coords['u']['x'].index(min(self.coords['u']['x'])) + 1])) + \
+             self.coords['d']['x'][:self.coords['d']['x'].index(max(self.coords['d']['x'])) + 1]
+        Yd = list(reversed(self.coords['u']['y'][1:self.coords['u']['x'].index(min(self.coords['u']['x'])) + 1])) + \
+             self.coords['d']['y'][:self.coords['d']['x'].index(max(self.coords['d']['x'])) + 1]
+
+        self.coords['u']['x'], self.coords['u']['y'] = Xu, Yu
+        self.coords['d']['x'], self.coords['d']['y'] = Xd, Yd
+
         self.find_circles()
 
     def BMSTU(self):
@@ -217,45 +224,47 @@ class Airfoil:
         self.__O_outlet = 1 - self.r_outlet_b, -k_outlet * self.r_outlet_b
 
         # точки пересечения линий спинки и корыта
-        xcl_u, ycl_u = COOR(tan(atan(k_inlet) + g_u_inlet),
-                            sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.r_inlet_b -
-                            (tan(atan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
-                            tan(atan(k_outlet) - g_u_outlet),
-                            sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.r_outlet_b -
-                            (tan(atan(k_outlet) - g_u_outlet)) * self.__O_outlet[0] - (-1) * self.__O_outlet[1])
+        xcl_u, ycl_u = COOR(tan(arctan(k_inlet) + g_u_inlet),
+                            sqrt(tan(arctan(k_inlet) + g_u_inlet) ** 2 + 1) * self.r_inlet_b -
+                            (tan(arctan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
+                            tan(arctan(k_outlet) - g_u_outlet),
+                            sqrt(tan(arctan(k_outlet) - g_u_outlet) ** 2 + 1) * self.r_outlet_b -
+                            (tan(arctan(k_outlet) - g_u_outlet)) * self.__O_outlet[0] - (-1) * self.__O_outlet[1])
 
-        xcl_d, ycl_d = COOR(tan(atan(k_inlet) - g_d_inlet),
-                            -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.r_inlet_b -
-                            (tan(atan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
-                            tan(atan(k_outlet) + g_d_outlet),
-                            -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.r_outlet_b -
-                            (tan(atan(k_outlet) + g_d_outlet)) * self.__O_outlet[0] - (-1) * self.__O_outlet[1])
+        xcl_d, ycl_d = COOR(tan(arctan(k_inlet) - g_d_inlet),
+                            -sqrt(tan(arctan(k_inlet) - g_d_inlet) ** 2 + 1) * self.r_inlet_b -
+                            (tan(arctan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
+                            tan(arctan(k_outlet) + g_d_outlet),
+                            -sqrt(tan(arctan(k_outlet) + g_d_outlet) ** 2 + 1) * self.r_outlet_b -
+                            (tan(arctan(k_outlet) + g_d_outlet)) * self.__O_outlet[0] - (-1) * self.__O_outlet[1])
 
         # точки пересечения окружностей со спинкой и корытом
-        xclc_i_u, yclc_i_u = COOR(tan(atan(k_inlet) + g_u_inlet),
-                                  sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.r_inlet_b
-                                  - (tan(atan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
-                                  -1 / (tan(atan(k_inlet) + g_u_inlet)),
-                                  -(-1 / tan(atan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1])
+        xclc_i_u, yclc_i_u = COOR(tan(arctan(k_inlet) + g_u_inlet),
+                                  sqrt(tan(arctan(k_inlet) + g_u_inlet) ** 2 + 1) * self.r_inlet_b
+                                  - (tan(arctan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
+                                  -1 / (tan(arctan(k_inlet) + g_u_inlet)),
+                                  -(-1 / tan(arctan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[
+                                      1])
 
-        xclc_i_d, yclc_i_d = COOR(tan(atan(k_inlet) - g_d_inlet),
-                                  -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.r_inlet_b
-                                  - (tan(atan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
-                                  -1 / (tan(atan(k_inlet) - g_d_inlet)),
-                                  -(-1 / tan(atan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1])
+        xclc_i_d, yclc_i_d = COOR(tan(arctan(k_inlet) - g_d_inlet),
+                                  -sqrt(tan(arctan(k_inlet) - g_d_inlet) ** 2 + 1) * self.r_inlet_b
+                                  - (tan(arctan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
+                                  -1 / (tan(arctan(k_inlet) - g_d_inlet)),
+                                  -(-1 / tan(arctan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[
+                                      1])
 
-        xclc_e_u, yclc_e_u = COOR(tan(atan(k_outlet) - g_u_outlet),
-                                  sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.r_outlet_b
-                                  - tan(atan(k_outlet) - g_u_outlet) * self.__O_outlet[0] - (-1) * self.__O_outlet[1],
-                                  -1 / tan(atan(k_outlet) - g_u_outlet),
-                                  -(-1 / tan(atan(k_outlet) - g_u_outlet)) * self.__O_outlet[0] - (-1) *
+        xclc_e_u, yclc_e_u = COOR(tan(arctan(k_outlet) - g_u_outlet),
+                                  sqrt(tan(arctan(k_outlet) - g_u_outlet) ** 2 + 1) * self.r_outlet_b
+                                  - tan(arctan(k_outlet) - g_u_outlet) * self.__O_outlet[0] - (-1) * self.__O_outlet[1],
+                                  -1 / tan(arctan(k_outlet) - g_u_outlet),
+                                  -(-1 / tan(arctan(k_outlet) - g_u_outlet)) * self.__O_outlet[0] - (-1) *
                                   self.__O_outlet[1])
 
-        xclc_e_d, yclc_e_d = COOR(tan(atan(k_outlet) + g_d_outlet),
-                                  -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.r_outlet_b
-                                  - tan(atan(k_outlet) + g_d_outlet) * self.__O_outlet[0] - (-1) * self.__O_outlet[1],
-                                  -1 / tan(atan(k_outlet) + g_d_outlet),
-                                  -(-1 / tan(atan(k_outlet) + g_d_outlet)) * self.__O_outlet[0] - (-1) *
+        xclc_e_d, yclc_e_d = COOR(tan(arctan(k_outlet) + g_d_outlet),
+                                  -sqrt(tan(arctan(k_outlet) + g_d_outlet) ** 2 + 1) * self.r_outlet_b
+                                  - tan(arctan(k_outlet) + g_d_outlet) * self.__O_outlet[0] - (-1) * self.__O_outlet[1],
+                                  -1 / tan(arctan(k_outlet) + g_d_outlet),
+                                  -(-1 / tan(arctan(k_outlet) + g_d_outlet)) * self.__O_outlet[0] - (-1) *
                                   self.__O_outlet[1])
 
         # точки входной окружности кромки по спинке
@@ -303,6 +312,8 @@ class Airfoil:
             self.BMSTU()
         elif self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
             self.Bezier()
+        elif self.method.upper() in ('MANUAL', 'ВРУЧНУЮ'):
+            pass
         else:
             print(Fore.RED + f'No such method {self.method}!' + Fore.RESET)
 
@@ -329,12 +340,14 @@ class Airfoil:
 
     def find_circles(self) -> dict:
         """Поиск радиусов окружностей входной и выходной кромок"""
-        if hasattr(self, "r_inlet_b") and hasattr(self, "r_outlet_b"): return self.r_inlet_b, self.r_outlet_b
+        if all(hasattr(self, attr) for attr in ['__O_inlet', 'r_inlet_b', '__O_outlet', 'r_outlet_b']):
+            return {'inlet': {'O': self.__O_inlet, 'r': self.r_inlet_b},
+                    'outlet': {'O': self.__O_outlet, 'r': self.r_outlet_b}}
 
         Fu = interpolate.interp1d(*self.coords['u'].values(), kind='quadratic', fill_value='extrapolate')
         Fd = interpolate.interp1d(*self.coords['d'].values(), kind='quadratic', fill_value='extrapolate')
 
-        dx = 0.000001
+        dx = 0.000_1
 
         x0, x1 = 0, 1
         y0, y1 = Fu(x0), Fu(x1)
@@ -365,22 +378,23 @@ class Airfoil:
         self.r_inlet_b = abs(self.__O_inlet[0] - x0)
         self.r_outlet_b = abs(self.__O_outlet[0] - x1)
 
-        return {'inlet': self.r_inlet_b, 'outlet': self.r_outlet_b}
+        return {'inlet': {'O': self.__O_inlet, 'r': self.r_inlet_b},
+                'outlet': {'O': self.__O_outlet, 'r': self.r_outlet_b}}
 
-    def show(self):
+    def show(self, figsize=(14, 5.25), savefig=False):
         """Построение профиля"""
-        fg = plt.figure(figsize=(13, 6))  # размер в дюймах
+        fg = plt.figure(figsize=figsize)
         gs = fg.add_gridspec(1, 4)  # строки, столбцы
 
         fg.add_subplot(gs[0, 0])
         plt.title('Initial data')
         plt.grid(False)
 
-        plt.plot([], [], label=f'method = {self.method}')
-        plt.plot([], [], label=f'N = {self.N}')
+        plt.plot([], label=f'method = {self.method}')
+        plt.plot([], label=f'N = {self.N}')
         for key, value in self.__dict__.items():
             if '__' not in key and 'props' not in key and 'coords' not in key:
-                plt.plot([], [], label=f'{key} = {rounding(value, self.rnd)}')
+                plt.plot([], label=f'{key} = {rounding(value, self.rnd)}')
         plt.legend(loc='upper center')
 
         fg.add_subplot(gs[0, 1])
@@ -407,10 +421,6 @@ class Airfoil:
             y_outlet.append(self.r_outlet_b * sin(alpha) + self.__O_outlet[1])
         plt.plot(x_inlet, y_inlet, ls='-', color='black', linewidth=1)
         plt.plot(x_outlet, y_outlet, ls='-', color='black', linewidth=1)
-        # plt.text(0, 0, f'{self.r_inlet_b}')
-        # plt.text(1, 0, f'{self.r_outlet_b}')
-        # plt.arrow(self.r_inlet_b, 0, 0, 0.1, length_includes_head=True, color='black',alpha=1, label='R')
-        # plt.annotate('General direction', xy=(0.4, 0.7))
 
         fg.add_subplot(gs[0, 2])
         plt.title('Airfoil')
@@ -425,9 +435,11 @@ class Airfoil:
         plt.title('Properties')
         plt.grid(False)
 
-        for key, value in self.properties.items():
-            plt.plot([], [], label=f'{key} = {rounding(value, self.rnd)}')
+        for key, value in self.properties.items(): plt.plot([], label=f'{key} = {rounding(value, self.rnd)}')
         plt.legend(loc='upper center')
+
+        if savefig:
+            export2(plt, file_path='exports/airfoil', file_name='airfoil', file_extension='png', show_time=False)
 
         plt.show()
 
@@ -478,7 +490,7 @@ class Airfoil:
         self.__props['Wp'] = self.__props['Jp'] / max(
             sqrt((0 - self.__props['x0']) ** 2 + (0 - self.__props['y0']) ** 2),
             sqrt((1 - self.__props['x0']) ** 2 + (0 - self.__props['y0']) ** 2))
-        self.__props['alpha'] = 0.5 * atan(-2 * self.__props['Jxcyc'] / (self.__props['Jxc'] - self.__props['Jyc']))
+        self.__props['alpha'] = 0.5 * arctan(-2 * self.__props['Jxcyc'] / (self.__props['Jxc'] - self.__props['Jyc']))
 
         return self.__props
 
@@ -737,147 +749,34 @@ class Grate:
         plt.show()
 
 
-def show(show='all', savefig=False):
-    plt.close('all')
-
-    fg = plt.figure(figsize=(13, 9))  # размер в дюймах
-    gs = fg.add_gridspec(2, 3)  # строки, столбца
-
-    fg.add_subplot(gs[0, 0])  # позиция графика
-    plt.title('Initial data (Исходные данные)', fontsize=12)
-    plt.grid(False)  # сетка
-    plt.axis('square')
-    plt.xlim(0, 1)
-    plt.ylim(-0.5, 0.5)
-    ytemp = 0.35
-    for key in initial_data:
-        if key in ('g_вх', 'g_вых', 'e'):
-            plt.text(0.1, ytemp, key +
-                     ' = ' + str(rounding(initial_data[key], rnd)) +
-                     ' = ' + str(rounding(degrees(initial_data[key]), rnd)) + ' deg', fontsize=10)
-        else:
-            plt.text(0.1, ytemp, key + ' = ' + str(rounding(initial_data[key], rnd)), fontsize=10)
-        ytemp -= 0.1
-    del ytemp
-
-    fg.add_subplot(gs[0, 1])  # позиция графика
-    plt.title('AIRFOIL (профиль)', fontsize=12)
-    plt.grid(True)  # сетка
-    plt.axis('scaled')
-    plt.xlim(0, 1)
-    if initial_data['e'] == 0:
-        plt.ylim(-0.5, 0.5)
-    elif 0 < degrees(initial_data['e']):
-        plt.ylim(-0.25, 0.75)
-    else:
-        plt.ylim(-0.75, 0.25)
-    plt.plot(Xu, Yu, Xd, Yd, '-', color='black', linewidth=2)
-
-    fg.add_subplot(gs[1, 0])  # позиция графика
-    plt.title('Properties (хар-ки)', fontsize=12)
-    plt.grid(False)  # сетка
-    plt.axis('square')
-    plt.xlim(0, 1)
-    plt.ylim(-0.5, 0.5)
-    ytemp = 0.425
-    for key in properties:
-        if key == 'alpha':
-            plt.text(0.1, ytemp, key +
-                     ' = ' + str(rounding(properties[key], rnd)) +
-                     ' = ' + str(rounding(degrees(properties[key]), rnd)) + ' deg')
-        else:
-            plt.text(0.1, ytemp, key + ' = ' + str(rounding(properties[key], rnd)))
-        ytemp -= 0.055
-    del ytemp
-
-    fg.add_subplot(gs[1, 1])  # позиция графика
-    plt.title('AIRFOIL properties', fontsize=14)
-    plt.grid(True)  # сетка
-    plt.axis('square')
-    plt.xlim(0, 1)
-    if initial_data['e'] == 0:
-        plt.ylim(-0.5, 0.5)
-    elif 0 < degrees(initial_data['e']):
-        plt.ylim(-0.25, 0.75)
-    else:
-        plt.ylim(-0.75, 0.25)
-    x = list(linspace(0, initial_data['r_вх'], len(Xu))) + \
-        list(linspace(initial_data['r_вх'], 1 - initial_data['r_вых'], len(Xu))) + \
-        list(linspace(1 - initial_data['r_вых'], 1, len(Xu)))
-    plt.plot(Xu, Yu, ls='-', color='black', linewidth=2)
-    plt.plot(Xd, Yd, ls='-', color='black', linewidth=2)
-    plt.plot(x, list(tan(properties['alpha']) * (x - properties['xc']) + properties['yc'] for x in x), 'r--')
-    plt.plot(x, list(tan(properties['alpha'] + pi / 2) * (x - properties['xc']) + properties['yc'] for x in x), 'r--')
-    plt.text(properties['xc'], properties['yc'], 'C', fontsize=14, fontweight='bold')
-
-    fg.add_subplot(gs[0, 2])  # позиция графика
-    plt.title('Решетка', fontsize=14)
-    plt.grid(True)  # сетка
-    plt.axis('square')
-    plt.xlim(min(XuG + XdG), max(XuG + XdG))
-    plt.ylim(-0.5 - t / 2, 0.5 + t / 2)
-    plt.plot([min(XuG + XdG), min(XuG + XdG)], [-1 - t / 2, 1 + t / 2],
-             [max(XuG + XdG), max(XuG + XdG)], [-1 - t / 2, 1 + t / 2],
-             ls='-', color=(0, 0, 0))  # границы решетки
-    for i in range(len(d)):
-        plt.plot(list(d[i] / 2 * cos(alpha) + xd[i] for alpha in linspace(0, 2 * pi, 360)),
-                 list(d[i] / 2 * sin(alpha) + yd[i] for alpha in linspace(0, 2 * pi, 360)),
-                 ls='-', color=(0, 1, 0))
-    plt.plot(XuG, list(YuG[i] - t / 2 for i in range(len(YuG))), ls='-', color=(0, 0, 0))
-    plt.plot(XdG, list(YdG[i] - t / 2 for i in range(len(YdG))), ls='-', color=(0, 0, 0))
-    plt.plot(XuG, list(YuG[i] + t / 2 for i in range(len(YuG))), ls='-', color=(0, 0, 0))
-    plt.plot(XdG, list(YdG[i] + t / 2 for i in range(len(YdG))), ls='-', color=(0, 0, 0))
-    plt.plot(xd, yd, ls='--', color=(1, 0, 1))
-
-    fg.add_subplot(gs[1, 2])  # позиция графика
-    plt.title('Канал', fontsize=14)
-    plt.grid(True)  # сетка
-    plt.axis('square')
-    plt.xlim(min(XuG + XdG), max(XuG + XdG))
-    plt.ylim(-0.25, t + 0.25)
-    plt.plot([min(XuG + XdG), min(XuG + XdG)], [-1, 1],
-             [max(XuG + XdG), max(XuG + XdG)], [-1, 1],
-             ls='-', color=(0, 0, 0))
-    plt.plot(rd, d, ls='-', color=(0, 1, 0))
-    plt.plot([-1, 2], [0, 0], ls='-', color=(0, 0, 0), linewidth=1.5)
-    plt.plot(list(0.5 * (rd[i] + rd[i + 1]) for i in range(len(rd) - 1)),
-             list((d[i + 1] - d[i]) / (rd[i + 1] - rd[i]) for i in range(len(rd) - 1)),
-             ls='-', color=(1, 0, 0))
-
-    export2file(plt, file_path='exports/airfoil',
-                file_name='airfoil' +
-                          '_' + 'xf' + str(rounding(initial_data['xf'], rnd)) +
-                          '_' + 'r_вх' + str(rounding(initial_data['r_вх'], rnd)) +
-                          '_' + 'r_вых' + str(rounding(initial_data['r_вых'], rnd)) +
-                          '_' + 'g' + str(rounding(initial_data['g'], rnd)) +
-                          '_' + 'g_вх' + str(rounding(degrees(initial_data['g_вх']), rnd)) +
-                          '_' + 'g_вых' + str(rounding(degrees(initial_data['g_вых']), rnd)) +
-                          '_' + 'e' + str(rounding(degrees(initial_data['e']), rnd)),
-                file_extension='png', show_time=False)
-    plt.show()
-
-
 if __name__ == '__main__':
-    Airfoil.rnd = 6
+    Airfoil.rnd = 4
 
-    '''airfoil = Airfoil('BMSTU', 20)  # степень дискретизации
+    if 0:
+        airfoil = Airfoil('BMSTU', 20)
 
-    airfoil.xg_b = 0.35
-    airfoil.r_inlet_b = 0.06
-    airfoil.r_outlet_b = 0.03
-    airfoil.g_ = 0.5
-    airfoil.g_inlet = radians(25)
-    airfoil.g_outlet = radians(10)
-    airfoil.e = radians(110)
+        airfoil.xg_b = 0.35
+        airfoil.r_inlet_b = 0.06
+        airfoil.r_outlet_b = 0.03
+        airfoil.g_ = 0.5
+        airfoil.g_inlet = radians(25)
+        airfoil.g_outlet = radians(10)
+        airfoil.e = radians(110)
+
+    if 1:
+        airfoil = Airfoil('NACA', 40)
+
+        airfoil.c_b = 0.24
+        airfoil.f_b = 0.05
+        airfoil.xf_b = 0.3
 
     airfoil.solve()
     airfoil.show()
-    print(airfoil.find_circles())
 
     print(airfoil.to_dataframe(bears='pandas'))
-    # print(airfoil.to_dataframe(bears='polars'))
+    print(airfoil.to_dataframe(bears='polars'))
 
-    print('\nairfoil properties:')
+    print(Fore.MAGENTA + 'airfoil properties:' + Fore.RESET)
     for k, v in airfoil.properties.items(): print(f'{k}: {v}')
 
     airfoil.export()
@@ -890,13 +789,5 @@ if __name__ == '__main__':
     # print(grate.to_dataframe())
     # print(grate.to_dataframe(bears='polars'))
 
-    for k, v in grate.properties.items(): print(f'{k}: {v}')'''
-
-    airfoil = Airfoil('NACA')
-
-    airfoil.c_b = 0.24
-    airfoil.f_b = 0.05
-    airfoil.xf_b = 0.3
-
-    airfoil.solve()
-    airfoil.show()
+    print(Fore.MAGENTA + 'grate properties:' + Fore.RESET)
+    for k, v in grate.properties.items(): print(f'{k}: {v}')
