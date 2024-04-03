@@ -14,7 +14,7 @@ from curves import BernsteinCurve
 
 sys.path.append('D:/Programming/Python')
 
-from tools import export2, isnum, COOR, LINE, Axis, angle, rounding, eps, dist, dist2line
+from tools import export2, isnum, COOR, LINE, Axis, angle, rounding, eps, dist, dist2line, isiter
 from decorators import timeit
 
 import cProfile
@@ -138,7 +138,14 @@ class Airfoil:
             assert 0 <= self.h <= 1, 'Incorrect condition: ' + '0 <= self.h <= 1'
 
         if self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
-            pass
+            assert hasattr(self, 'u'), 'Incorrect condition: ' + 'hasattr(self, "u")'
+            assert isiter(self.u), 'Incorrect condition: ' + 'isiter(self.u)'
+            assert all(map(isiter, self.u)), 'Incorrect condition: ' + 'all(map(isiter, self.u))'
+            assert all(len(el) == 2 for el in self.u), 'Incorrect condition: ' + 'all(map(isiter, self.u))'
+
+            assert hasattr(self, 'l'), 'Incorrect condition: ' + 'hasattr(self, "l")'
+            assert isiter(self.l), 'Incorrect condition: ' + 'isiter(self.l)'
+            assert all(len(el) == 2 for el in self.l), 'Incorrect condition: ' + 'all(map(isiter, self.l))'
 
         if self.method.upper() in ('MANUAL', 'ВРУЧНУЮ'):
             pass
@@ -313,7 +320,10 @@ class Airfoil:
         self.find_circles()
 
     def Bezier(self):
-        pass
+        self.coords['u']['x'], self.coords['u']['y'] = BernsteinCurve(self.u, N=self.__N).T
+        self.coords['d']['x'], self.coords['d']['y'] = BernsteinCurve(self.l, N=self.__N).T
+
+        self.find_circles()
 
     @timeit()
     def solve(self):
@@ -411,7 +421,7 @@ class Airfoil:
         plt.plot([], label=f'method = {self.method}')
         plt.plot([], label=f'N = {self.N}')
         for key, value in self.__dict__.items():
-            if '__' not in key and 'props' not in key and 'coords' not in key:
+            if '__' not in key and type(value) in (int, float):
                 plt.plot([], label=f'{key} = {rounding(value, self.rnd)}')
         plt.legend(loc='upper center')
 
@@ -733,7 +743,7 @@ if __name__ == '__main__':
 
     airfoils = list()
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('BMSTU', 20))
 
         airfoils[-1].xg_b = 0.35
@@ -744,17 +754,23 @@ if __name__ == '__main__':
         airfoils[-1].g_outlet = radians(10)
         airfoils[-1].e = radians(110)
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('NACA', 40))
 
         airfoils[-1].c_b = 0.24
         airfoils[-1].f_b = 0.05
         airfoils[-1].xf_b = 0.3
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('MYNK', 20))
 
-        airfoils[-1].h = 0.2
+        airfoils[-1].h = 0.1
+
+    if 1:
+        airfoils.append(Airfoil('BEZIER', 30))
+
+        airfoils[-1].u = ((0.0, 0.0), (0.05, 0.100), (0.35, 0.200), (1.0, 0.0))
+        airfoils[-1].l = ((0.0, 0.0), (0.05, -0.10), (0.35, -0.05), (0.5, 0.0), (1.0, 0.0))
 
     for airfoil in airfoils:
         airfoil.solve()
