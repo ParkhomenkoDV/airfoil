@@ -4,7 +4,7 @@ from colorama import Fore
 
 from math import radians, degrees, sqrt, floor, ceil
 import numpy as np
-from numpy import linspace, arange, nan, inf, pi, cos, sin, tan, arctan
+from numpy import linspace, arange, array, nan, inf, pi, cos, sin, tan, arctan
 from scipy import interpolate, integrate
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -79,22 +79,6 @@ class Airfoil:
         pass
 
     def validate(self) -> bool:
-        if self.method.upper() in ('NACA', 'N.A.C.A.'):
-            # относ. максимальная толщина профиля
-            assert hasattr(self, 'c_b'), 'Incorrect condition: ' + 'hasattr(self, "c_b")'
-            assert type(self.c_b) in (int, float), 'Incorrect condition: ' + 'type(self.c_b) in (int, float)'
-            assert 0 <= self.c_b <= 1, 'Incorrect condition: ' + '0 <= self.c_b <= 1'
-
-            # относ. координата максимального прогиба профиля
-            assert hasattr(self, 'xf_b'), 'Incorrect condition: ' + 'hasattr(self, "xf_b")'
-            assert type(self.xf_b) in (int, float), 'Incorrect condition: ' + 'type(self.xf_b) in (int, float)'
-            assert 0 <= self.xf_b <= 1, 'Incorrect condition: ' + '0 <= self.xf_b <= 1'
-
-            # относ. максимальный прогиб профиля
-            assert hasattr(self, 'f_b'), 'Incorrect condition: ' + 'hasattr(self, "f_b")'
-            assert type(self.f_b) in (int, float), 'Incorrect condition: ' + 'type(self.f_b) in (int, float)'
-            assert 0 <= self.f_b <= 1, 'Incorrect condition: ' + '0 <= self.f_b <= 1'
-
         if self.method.upper() in ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'):
             # относ. координата пересечения входного и выходного лучей
             assert hasattr(self, 'xg_b'), 'Incorrect condition: ' + 'hasattr(self, "xg_b")'
@@ -132,6 +116,27 @@ class Airfoil:
             assert hasattr(self, 'e'), 'Incorrect condition: ' + 'hasattr(self, "e")'
             assert type(self.e) in (int, float), 'Incorrect condition: ' + 'type(self.e) in (int, float)'
 
+        if self.method.upper() in ('NACA', 'N.A.C.A.'):
+            # относ. максимальная толщина профиля
+            assert hasattr(self, 'c_b'), 'Incorrect condition: ' + 'hasattr(self, "c_b")'
+            assert type(self.c_b) in (int, float), 'Incorrect condition: ' + 'type(self.c_b) in (int, float)'
+            assert 0 <= self.c_b <= 1, 'Incorrect condition: ' + '0 <= self.c_b <= 1'
+
+            # относ. координата максимального прогиба профиля
+            assert hasattr(self, 'xf_b'), 'Incorrect condition: ' + 'hasattr(self, "xf_b")'
+            assert type(self.xf_b) in (int, float), 'Incorrect condition: ' + 'type(self.xf_b) in (int, float)'
+            assert 0 <= self.xf_b <= 1, 'Incorrect condition: ' + '0 <= self.xf_b <= 1'
+
+            # относ. максимальный прогиб профиля
+            assert hasattr(self, 'f_b'), 'Incorrect condition: ' + 'hasattr(self, "f_b")'
+            assert type(self.f_b) in (int, float), 'Incorrect condition: ' + 'type(self.f_b) in (int, float)'
+            assert 0 <= self.f_b <= 1, 'Incorrect condition: ' + '0 <= self.f_b <= 1'
+
+        if self.method.upper() in ('MYNK', 'МУНК'):
+            assert hasattr(self, 'h'), 'Incorrect condition: ' + 'hasattr(self, "h")'
+            assert type(self.h) in (int, float), 'Incorrect condition: ' + 'type(self.h) in (int, float)'
+            assert 0 <= self.h <= 1, 'Incorrect condition: ' + '0 <= self.h <= 1'
+
         if self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
             pass
 
@@ -140,58 +145,7 @@ class Airfoil:
 
         return True
 
-    def NACA(self, closed=True):
-        self.coords['u'], self.coords['d'] = {'x': [], 'y': []}, {'x': [], 'y': []}
-
-        i = arange(self.__N)
-        betta = i * pi / (2 * (self.__N - 1))
-        x = 1 - np.cos(betta)
-
-        mask = (0 <= x) & (x <= self.xf_b)
-
-        yf = np.full_like(i, self.f_b, dtype=np.float64)
-        yf[mask] *= self.xf_b ** (-2) * (2 * self.xf_b * x[mask] - x[mask] ** 2)
-        yf[~mask] *= (1 - self.xf_b) ** (-2) * (1 - 2 * self.xf_b + 2 * self.xf_b * x[~mask] - x[~mask] ** 2)
-
-        gradYf = 2 * self.f_b
-
-        a = np.array([0.2969, -0.126, -0.3516, 0.2843, -0.1036 if closed else -0.1015])
-
-        yc = self.c_b / 0.2 * np.dot(a, np.column_stack((np.sqrt(x), x, x ** 2, x ** 3, x ** 4)).T)
-
-        tetta = np.arctan(gradYf)
-
-        sin_tetta, cos_tetta = np.sin(tetta), np.cos(tetta)  # предварительный расчет для ускорения работы
-
-        self.coords['u']['x'], self.coords['u']['y'] = x - yc * sin_tetta, yf + yc * cos_tetta
-        self.coords['d']['x'], self.coords['d']['y'] = x + yc * sin_tetta, yf - yc * cos_tetta
-
-        min_coord = min(np.min(self.coords['u']['x']), np.min(self.coords['d']['x']))
-        max_coord = max(np.max(self.coords['u']['x']), np.max(self.coords['d']['x']))
-        scale = abs(max_coord - min_coord)
-        self.transform(x0=min_coord, scale=1 / scale, inplace=True)
-
-        # отсечка значений спинки корыту и наоборот
-        Xu = (self.coords['u']['x'][self.coords['u']['x'].index(min(self.coords['u']['x'])):] +
-              list(reversed(self.coords['d']['x'][
-                            self.coords['d']['x'].index(max(self.coords['d']['x'])):len(self.coords['d']['x']) - 1])))
-        Yu = (self.coords['u']['y'][self.coords['u']['x'].index(min(self.coords['u']['x'])):] +
-              list(reversed(self.coords['d']['y'][
-                            self.coords['d']['x'].index(max(self.coords['d']['x'])):len(self.coords['d']['x']) - 1])))
-        Xd = list(reversed(self.coords['u']['x'][1:self.coords['u']['x'].index(min(self.coords['u']['x'])) + 1])) + \
-             self.coords['d']['x'][:self.coords['d']['x'].index(max(self.coords['d']['x'])) + 1]
-        Yd = list(reversed(self.coords['u']['y'][1:self.coords['u']['x'].index(min(self.coords['u']['x'])) + 1])) + \
-             self.coords['d']['y'][:self.coords['d']['x'].index(max(self.coords['d']['x'])) + 1]
-
-        self.coords['u']['x'], self.coords['u']['y'] = Xu, Yu
-        self.coords['d']['x'], self.coords['d']['y'] = Xd, Yd
-
-        self.find_circles()
-
     def BMSTU(self):
-        self.validate()
-        self.coords['u'], self.coords['d'] = {'x': [], 'y': []}, {'x': [], 'y': []}
-
         # tan угла входа и выхода потока
         k_inlet, k_outlet = 1 / (2 * self.xg_b / (self.xg_b - 1) * tan(self.e)), 1 / (2 * tan(self.e))
         if tan(self.e) * self.e > 0:
@@ -298,16 +252,81 @@ class Airfoil:
             self.coords['d']['x'].insert(2 * self.__N, 1 - self.r_outlet_b * (1 - cos(a)))
             self.coords['d']['y'].insert(2 * self.__N, self.__O_outlet[1] - self.r_outlet_b * sin(a))
 
+    def NACA(self, closed=True):
+        i = arange(self.__N)
+        betta = i * pi / (2 * (self.__N - 1))
+        x = 1 - np.cos(betta)
+
+        mask = (0 <= x) & (x <= self.xf_b)
+
+        yf = np.full_like(i, self.f_b, dtype=np.float64)
+        yf[mask] *= self.xf_b ** (-2) * (2 * self.xf_b * x[mask] - x[mask] ** 2)
+        yf[~mask] *= (1 - self.xf_b) ** (-2) * (1 - 2 * self.xf_b + 2 * self.xf_b * x[~mask] - x[~mask] ** 2)
+
+        gradYf = 2 * self.f_b
+
+        a = np.array([0.2969, -0.126, -0.3516, 0.2843, -0.1036 if closed else -0.1015])
+
+        yc = self.c_b / 0.2 * np.dot(a, np.column_stack((np.sqrt(x), x, x ** 2, x ** 3, x ** 4)).T)
+
+        tetta = np.arctan(gradYf)
+
+        sin_tetta, cos_tetta = np.sin(tetta), np.cos(tetta)  # предварительный расчет для ускорения работы
+
+        self.coords['u']['x'], self.coords['u']['y'] = x - yc * sin_tetta, yf + yc * cos_tetta
+        self.coords['d']['x'], self.coords['d']['y'] = x + yc * sin_tetta, yf - yc * cos_tetta
+
+        x_min = min(np.min(self.coords['u']['x']), np.min(self.coords['d']['x']))
+        x_max = max(np.max(self.coords['u']['x']), np.max(self.coords['d']['x']))
+        scale = abs(x_max - x_min)
+        self.transform(x0=x_min, scale=1 / scale, inplace=True)
+
+        # отсечка значений спинки корыту и наоборот
+        Xu = (self.coords['u']['x'][self.coords['u']['x'].index(min(self.coords['u']['x'])):] +
+              list(reversed(self.coords['d']['x'][
+                            self.coords['d']['x'].index(max(self.coords['d']['x'])):len(self.coords['d']['x']) - 1])))
+        Yu = (self.coords['u']['y'][self.coords['u']['x'].index(min(self.coords['u']['x'])):] +
+              list(reversed(self.coords['d']['y'][
+                            self.coords['d']['x'].index(max(self.coords['d']['x'])):len(self.coords['d']['x']) - 1])))
+        Xd = list(reversed(self.coords['u']['x'][1:self.coords['u']['x'].index(min(self.coords['u']['x'])) + 1])) + \
+             self.coords['d']['x'][:self.coords['d']['x'].index(max(self.coords['d']['x'])) + 1]
+        Yd = list(reversed(self.coords['u']['y'][1:self.coords['u']['x'].index(min(self.coords['u']['x'])) + 1])) + \
+             self.coords['d']['y'][:self.coords['d']['x'].index(max(self.coords['d']['x'])) + 1]
+
+        self.coords['u']['x'], self.coords['u']['y'] = Xu, Yu
+        self.coords['d']['x'], self.coords['d']['y'] = Xd, Yd
+
+        self.find_circles()
+
+    def MYNK(self):
+        x = linspace(0, 1, self.__N)
+        self.coords['u']['x'] = x
+        self.coords['u']['y'] = self.h * (0.25 * (-x - 17 * x ** 2 - 6 * x ** 3) + x ** 0.87 * (1 - x) ** 0.56)
+        self.coords['d']['x'] = x
+        self.coords['d']['y'] = self.h * (0.25 * (-x - 17 * x ** 2 - 6 * x ** 3) - x ** 0.87 * (1 - x) ** 0.56)
+
+        angle = arctan((self.coords['u']['y'][-1] - self.coords['u']['y'][0]) / (1 - 0))
+        scale = dist((self.coords['u']['x'][0], self.coords['u']['y'][0]),
+                     (self.coords['u']['x'][-1], self.coords['u']['y'][-1]))
+        self.transform(angle=angle, scale=1 / scale, inplace=True)
+
+        self.find_circles()
+
     def Bezier(self):
         pass
 
     @timeit()
     def solve(self):
         self.__props = dict()
+        self.coords['u'], self.coords['d'] = {'x': [], 'y': []}, {'x': [], 'y': []}
+        self.validate()
+
         if self.method.upper() in ('NACA', 'N.A.C.A.'):
             self.NACA()
         elif self.method.upper() in ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'):
             self.BMSTU()
+        elif self.method.upper() in ('MYNK', 'МУНК'):
+            self.MYNK()
         elif self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
             self.Bezier()
         elif self.method.upper() in ('MANUAL', 'ВРУЧНУЮ'):
@@ -582,38 +601,6 @@ class Grate:
         """Дифузорность/конфузорность решетки"""
         if self.__props: return self.__props
 
-        '''d, xd, yd = [nan] * len(XdGt), [nan] * len(XdGt), [nan] * len(XdGt)  # обnanивание списков
-    
-        for i in range(len(XdGt)):
-            if XdGt[i] < min(XdGt) + self.__airfoil.r_inlet_b or XdGt[i] > max(XdGt) - self.__airfoil.r_outlet_b: 
-                continue
-            d[i] = inf
-            for j in range(len(XuGt)):
-                if sqrt((XdGt[i] - XuGt[j]) ** 2 + (((YdGt[i] + self.__t_b / 2) - (YuGt[j] - self.__t_b / 2)) ** 2)) < \
-                        d[i]:
-                    d[i] = sqrt(
-                        (XdGt[i] - XuGt[j]) ** 2 + (((YdGt[i] + self.__t_b / 2) - (YuGt[j] - self.__t_b / 2)) ** 2))
-                    xd[i] = 0.5 * (XdGt[i] + XuGt[j])
-                    yd[i] = 0.5 * ((YdGt[i] + self.__t_b / 2) + (YuGt[j] - self.__t_b / 2))
-    
-        dt, rd, xdt, ydt = list(), list(), list(), list()
-    
-        for i in range(len(d)):
-            if isnum(str(d[i])) and d[i] is not nan: dt.append(d[i])
-            if isnum(str(xd[i])) and xd[i] is not nan: xdt.append(xd[i])
-            if isnum(str(yd[i])) and yd[i] is not nan: ydt.append(yd[i])
-    
-        rd.append(xd[0])
-    
-        for i in range(1, len(d)):
-            if isnum(str(sqrt((xd[i] - xd[i - 1]) ** 2 + (yd[i] - yd[i - 1]) ** 2))):
-                rd.append(rd[i - 1] + sqrt((xd[i] - xd[i - 1]) ** 2 + (yd[i] - yd[i - 1]) ** 2))
-            else:
-                rd.append(0)
-    
-        self.d, self.rd, self.xd, self.yd = dt, rd, xdt, ydt
-        '''
-
         # kind='cubic' необходим для гладкости производной
         Fd = interpolate.interp1d(self.coords['d']['x'], [y + self.__t_b / 2 for y in self.coords['d']['y']],
                                   kind='cubic', fill_value='extrapolate')
@@ -763,6 +750,11 @@ if __name__ == '__main__':
         airfoils[-1].c_b = 0.24
         airfoils[-1].f_b = 0.05
         airfoils[-1].xf_b = 0.3
+
+    if 1:
+        airfoils.append(Airfoil('MYNK', 20))
+
+        airfoils[-1].h = 0.2
 
     for airfoil in airfoils:
         airfoil.solve()
