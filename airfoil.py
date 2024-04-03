@@ -209,8 +209,6 @@ class Airfoil:
                          sqrt((self.xg_b / (self.xg_b - 1) - 1) ** 2 -
                               4 * (self.xg_b / (self.xg_b - 1) * tan(self.e) ** 2)))
 
-        self.__k_inlet, self.__k_outlet = k_inlet, k_outlet
-
         # углы входа и выхода профиля
         if self.e > 0:
             g_u_inlet, g_d_inlet = (1 - self.g_) * self.g_inlet, self.g_ * self.g_inlet
@@ -389,6 +387,7 @@ class Airfoil:
         fg.add_subplot(gs[0, 0])
         plt.title('Initial data')
         plt.grid(False)
+        plt.axis('off')
 
         plt.plot([], label=f'method = {self.method}')
         plt.plot([], label=f'N = {self.N}')
@@ -401,15 +400,7 @@ class Airfoil:
         plt.title('Airfoil with structure')
         plt.grid(True)  # сетка
         plt.axis('equal')
-        plt.xlim(0, 1)
-
-        # угол поворота потока
-        '''plt.plot([0, self.xg_b, 1], [0, self.__k_inlet * self.xg_b, 0],
-                 linestyle='--', color='green', linewidth=1.5)'''
-
-        # углы расширения и сужения
-        # plt.plot([xclc_i_u, xcl_u, xclc_e_u], [yclc_i_u, ycl_u, yclc_e_u], 'bo--')
-        # plt.plot([xclc_i_d, xcl_d, xclc_e_d], [yclc_i_d, ycl_d, yclc_e_d], 'ro--')
+        plt.xlim([0, 1])
 
         plt.plot(self.coords['u']['x'], self.coords['u']['y'], ls='-', color='blue', linewidth=2)
         plt.plot(self.coords['d']['x'], self.coords['d']['y'], ls='-', color='red', linewidth=2)
@@ -434,6 +425,7 @@ class Airfoil:
         fg.add_subplot(gs[0, 3])
         plt.title('Properties')
         plt.grid(False)
+        plt.axis('off')
 
         for key, value in self.properties.items(): plt.plot([], label=f'{key} = {rounding(value, self.rnd)}')
         plt.legend(loc='upper center')
