@@ -79,73 +79,77 @@ class Airfoil:
         pass
 
     def validate(self) -> bool:
+        assert_sms = 'Incorrect condition: '
         if self.method.upper() in ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'):
             # относ. координата пересечения входного и выходного лучей
-            assert hasattr(self, 'xg_b'), 'Incorrect condition: ' + 'hasattr(self, "xg_b")'
-            assert type(self.xg_b) in (int, float), 'Incorrect condition: ' + 'type(self.xg_b) in (int, float)'
-            assert 0 <= self.xg_b <= 1, 'Incorrect condition: ' + '0 <= self.xg_b <= 1'
+            assert hasattr(self, 'xg_b'), assert_sms + 'hasattr(self, "xg_b")'
+            assert type(self.xg_b) in (int, float), assert_sms + 'type(self.xg_b) in (int, float)'
+            assert 0 <= self.xg_b <= 1, assert_sms + '0 <= self.xg_b <= 1'
 
             # относ. радиус входной кромоки
-            assert hasattr(self, 'r_inlet_b'), 'Incorrect condition: ' + 'hasattr(self, "r_inlet_b")'
-            assert type(self.r_inlet_b) in (int, float), \
-                ('Incorrect condition: ' + 'type(self.r_inlet_b) in (int, float)')
-            assert 0 <= self.r_inlet_b <= 1, 'Incorrect condition: ' + '0 <= self.r_inlet_b <= 1'
+            assert hasattr(self, 'r_inlet_b'), assert_sms + 'hasattr(self, "r_inlet_b")'
+            assert type(self.r_inlet_b) in (int, float), assert_sms + 'type(self.r_inlet_b) in (int, float)'
+            assert 0 <= self.r_inlet_b <= 1, assert_sms + '0 <= self.r_inlet_b <= 1'
 
             # относ. радиус выходной кромки
-            assert hasattr(self, 'r_outlet_b'), 'Incorrect condition: ' + 'hasattr(self, "r_outlet_b")'
-            assert type(self.r_outlet_b) in (int, float), \
-                ('Incorrect condition: ' + 'type(self.r_outlet_b) in (int, float)')
-            assert 0 <= self.r_outlet_b <= 1, 'Incorrect condition: ' + '0 <= self.r_outlet_b <= 1'
+            assert hasattr(self, 'r_outlet_b'), assert_sms + 'hasattr(self, "r_outlet_b")'
+            assert type(self.r_outlet_b) in (int, float), assert_sms + 'type(self.r_outlet_b) in (int, float)'
+            assert 0 <= self.r_outlet_b <= 1, assert_sms + '0 <= self.r_outlet_b <= 1'
 
             # степень приближенности к спинке
-            assert hasattr(self, 'g_'), 'Incorrect condition: ' + 'hasattr(self, "g_")'
-            assert type(self.g_) in (int, float), 'Incorrect condition: ' + 'type(self.g_) in  (int,float)'
-            assert 0 <= self.g_ <= 1, 'Incorrect condition: ' + '0 <= self.g_ <= 1'
+            assert hasattr(self, 'g_'), assert_sms + 'hasattr(self, "g_")'
+            assert type(self.g_) in (int, float), assert_sms + 'type(self.g_) in  (int,float)'
+            assert 0 <= self.g_ <= 1, assert_sms + '0 <= self.g_ <= 1'
 
             # угол раскрытия входной кромоки
-            assert hasattr(self, 'g_inlet'), 'Incorrect condition: ' + 'hasattr(self, "g_inlet")'
-            assert type(self.g_inlet) in (int, float), 'Incorrect condition: ' + 'type(self.g_inlet) in (int,float)'
-            assert 0 <= self.g_inlet, 'Incorrect condition: ' + '0 <= self.g_inlet'
+            assert hasattr(self, 'g_inlet'), assert_sms + 'hasattr(self, "g_inlet")'
+            assert type(self.g_inlet) in (int, float), assert_sms + 'type(self.g_inlet) in (int,float)'
+            assert 0 <= self.g_inlet, assert_sms + '0 <= self.g_inlet'
 
             # угол раскрытия выходной кромки
-            assert hasattr(self, 'g_outlet'), 'Incorrect condition: ' + 'hasattr(self, "g_outlet")'
-            assert type(self.g_outlet) in (int, float), 'Incorrect condition: ' + 'type(self.g_outlet) in (int, float)'
-            assert 0 <= self.g_outlet, 'Incorrect condition: ' + '0 <= self.g_outlet'
+            assert hasattr(self, 'g_outlet'), assert_sms + 'hasattr(self, "g_outlet")'
+            assert type(self.g_outlet) in (int, float), assert_sms + 'type(self.g_outlet) in (int, float)'
+            assert 0 <= self.g_outlet, assert_sms + '0 <= self.g_outlet'
 
             # угол поворота потока
-            assert hasattr(self, 'e'), 'Incorrect condition: ' + 'hasattr(self, "e")'
-            assert type(self.e) in (int, float), 'Incorrect condition: ' + 'type(self.e) in (int, float)'
+            assert hasattr(self, 'e'), assert_sms + 'hasattr(self, "e")'
+            assert type(self.e) in (int, float), assert_sms + 'type(self.e) in (int, float)'
 
         if self.method.upper() in ('NACA', 'N.A.C.A.'):
             # относ. максимальная толщина профиля
-            assert hasattr(self, 'c_b'), 'Incorrect condition: ' + 'hasattr(self, "c_b")'
-            assert type(self.c_b) in (int, float), 'Incorrect condition: ' + 'type(self.c_b) in (int, float)'
-            assert 0 <= self.c_b <= 1, 'Incorrect condition: ' + '0 <= self.c_b <= 1'
+            assert hasattr(self, 'c_b'), assert_sms + 'hasattr(self, "c_b")'
+            assert type(self.c_b) in (int, float), assert_sms + 'type(self.c_b) in (int, float)'
+            assert 0 <= self.c_b <= 1, assert_sms + '0 <= self.c_b <= 1'
 
             # относ. координата максимального прогиба профиля
-            assert hasattr(self, 'xf_b'), 'Incorrect condition: ' + 'hasattr(self, "xf_b")'
-            assert type(self.xf_b) in (int, float), 'Incorrect condition: ' + 'type(self.xf_b) in (int, float)'
-            assert 0 <= self.xf_b <= 1, 'Incorrect condition: ' + '0 <= self.xf_b <= 1'
+            assert hasattr(self, 'xf_b'), assert_sms + 'hasattr(self, "xf_b")'
+            assert type(self.xf_b) in (int, float), assert_sms + 'type(self.xf_b) in (int, float)'
+            assert 0 <= self.xf_b <= 1, assert_sms + '0 <= self.xf_b <= 1'
 
             # относ. максимальный прогиб профиля
-            assert hasattr(self, 'f_b'), 'Incorrect condition: ' + 'hasattr(self, "f_b")'
-            assert type(self.f_b) in (int, float), 'Incorrect condition: ' + 'type(self.f_b) in (int, float)'
-            assert 0 <= self.f_b <= 1, 'Incorrect condition: ' + '0 <= self.f_b <= 1'
+            assert hasattr(self, 'f_b'), assert_sms + 'hasattr(self, "f_b")'
+            assert type(self.f_b) in (int, float), assert_sms + 'type(self.f_b) in (int, float)'
+            assert 0 <= self.f_b <= 1, assert_sms + '0 <= self.f_b <= 1'
 
         if self.method.upper() in ('MYNK', 'МУНК'):
-            assert hasattr(self, 'h'), 'Incorrect condition: ' + 'hasattr(self, "h")'
-            assert type(self.h) in (int, float), 'Incorrect condition: ' + 'type(self.h) in (int, float)'
-            assert 0 <= self.h <= 1, 'Incorrect condition: ' + '0 <= self.h <= 1'
+            assert hasattr(self, 'h'), assert_sms + 'hasattr(self, "h")'
+            assert type(self.h) in (int, float), assert_sms + 'type(self.h) in (int, float)'
+            assert 0 <= self.h <= 1, assert_sms + '0 <= self.h <= 1'
 
         if self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
-            assert hasattr(self, 'u'), 'Incorrect condition: ' + 'hasattr(self, "u")'
-            assert isiter(self.u), 'Incorrect condition: ' + 'isiter(self.u)'
-            assert all(map(isiter, self.u)), 'Incorrect condition: ' + 'all(map(isiter, self.u))'
-            assert all(len(el) == 2 for el in self.u), 'Incorrect condition: ' + 'all(map(isiter, self.u))'
+            assert hasattr(self, 'u'), assert_sms + 'hasattr(self, "u")'
+            assert isiter(self.u), assert_sms + 'isiter(self.u)'
+            assert all(map(isiter, self.u)), assert_sms + 'all(map(isiter, self.u))'
+            assert all(len(el) == 2 for el in self.u), assert_sms + 'all(map(isiter, self.u))'
+            assert all(type(el) in (int, float) for itr in self.u for el in itr), (
+                    assert_sms + 'all(type(el) in (int, float) for itr in self.u for el in itr)')
 
-            assert hasattr(self, 'l'), 'Incorrect condition: ' + 'hasattr(self, "l")'
-            assert isiter(self.l), 'Incorrect condition: ' + 'isiter(self.l)'
-            assert all(len(el) == 2 for el in self.l), 'Incorrect condition: ' + 'all(map(isiter, self.l))'
+            assert hasattr(self, 'l'), assert_sms + 'hasattr(self, "l")'
+            assert isiter(self.l), assert_sms + 'isiter(self.l)'
+            assert all(map(isiter, self.l)), assert_sms + 'all(map(isiter, self.l))'
+            assert all(len(el) == 2 for el in self.l), assert_sms + 'all(map(isiter, self.l))'
+            assert all(type(el) in (int, float) for itr in self.l for el in itr), (
+                    assert_sms + 'all(type(el) in (int, float) for itr in self.l for el in itr)')
 
         if self.method.upper() in ('MANUAL', 'ВРУЧНУЮ'):
             pass
@@ -464,7 +468,7 @@ class Airfoil:
 
         plt.show()
 
-    def to_dataframe(self, bears='pandas'):
+    def to_dataframe(self, bears: str = 'pandas'):
         if bears.strip().lower() == 'pandas':
             return pd.DataFrame({'xu': pd.Series(airfoil.coords['u']['x']), 'yu': pd.Series(airfoil.coords['u']['y']),
                                  'xd': pd.Series(airfoil.coords['d']['x']), 'yd': pd.Series(airfoil.coords['d']['y'])})
@@ -477,7 +481,7 @@ class Airfoil:
 
     @property
     @timeit()
-    def properties(self, epsrel=1e-4) -> dict:
+    def properties(self, epsrel: float = 1e-4) -> dict[str: float]:
         if self.__props: return self.__props
 
         Yup = interpolate.interp1d(*self.coords['u'].values(), kind='quadratic', fill_value='extrapolate')
@@ -701,8 +705,8 @@ class Grate:
         gs = fg.add_gridspec(1, 2)  # строки, столбца
 
         fg.add_subplot(gs[0, 0])  # позиция графика
-        plt.title('Решетка')
-        plt.grid(True)  # сетка
+        plt.title('Lattice')
+        plt.grid(True)
         plt.axis('square')
         plt.xlim(floor(min(self.coords['u']['x'] + self.coords['d']['x'])),
                  ceil(max(self.coords['u']['x'] + self.coords['d']['x'])))
@@ -725,11 +729,11 @@ class Grate:
                  ls='-', color=(0, 0, 0))
 
         fg.add_subplot(gs[0, 1])  # позиция графика
-        plt.title('Канал')
-        plt.grid(True)  # сетка
+        plt.title('Channel')
+        plt.grid(True)
         plt.axis('square')
-        plt.xlim(0, ceil(max(self.r)))
-        plt.ylim(0, ceil(self.__t_b))
+        plt.xlim([0, ceil(max(self.r))])
+        plt.ylim([0, ceil(self.__t_b)])
         plt.plot(self.r, self.d, ls='-', color=(0, 1, 0))
         plt.plot([0, ceil(max(self.r))], [0, 0], ls='-', color=(0, 0, 0), linewidth=1.5)
         plt.plot(list((self.r[i] + self.r[i + 1]) / 2 for i in range(len(self.r) - 1)),
@@ -743,7 +747,7 @@ if __name__ == '__main__':
 
     airfoils = list()
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('BMSTU', 20))
 
         airfoils[-1].xg_b = 0.35
@@ -754,14 +758,14 @@ if __name__ == '__main__':
         airfoils[-1].g_outlet = radians(10)
         airfoils[-1].e = radians(110)
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('NACA', 40))
 
         airfoils[-1].c_b = 0.24
         airfoils[-1].f_b = 0.05
         airfoils[-1].xf_b = 0.3
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('MYNK', 20))
 
         airfoils[-1].h = 0.1
