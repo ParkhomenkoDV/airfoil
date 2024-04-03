@@ -340,7 +340,7 @@ class Airfoil:
 
     def find_circles(self) -> dict:
         """Поиск радиусов окружностей входной и выходной кромок"""
-        if all(hasattr(self, attr) for attr in ['__O_inlet', 'r_inlet_b', '__O_outlet', 'r_outlet_b']):
+        if all(hasattr(self, attr) for attr in ['_Airfoil__O_inlet', 'r_inlet_b', '_Airfoil__O_outlet', 'r_outlet_b']):
             return {'inlet': {'O': self.__O_inlet, 'r': self.r_inlet_b},
                     'outlet': {'O': self.__O_outlet, 'r': self.r_outlet_b}}
 
@@ -771,6 +771,8 @@ if __name__ == '__main__':
         airfoil.xf_b = 0.3
 
     airfoil.solve()
+    airfoil.find_circles()
+    airfoil.find_circles()
     airfoil.show()
 
     print(airfoil.to_dataframe(bears='pandas'))
