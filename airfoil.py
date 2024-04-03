@@ -437,14 +437,14 @@ class Airfoil:
 
     def to_dataframe(self, bears='pandas'):
         if bears.strip().lower() == 'pandas':
-            return pd.DataFrame({'xu': airfoil.coords['u']['x'], 'yu': airfoil.coords['u']['y'],
-                                 'xd': airfoil.coords['d']['x'], 'yd': airfoil.coords['d']['y']})
+            return pd.DataFrame({'xu': pd.Series(airfoil.coords['u']['x']), 'yu': pd.Series(airfoil.coords['u']['y']),
+                                 'xd': pd.Series(airfoil.coords['d']['x']), 'yd': pd.Series(airfoil.coords['d']['y'])})
         if bears.strip().lower() == 'polars':
-            return pl.DataFrame({'xu': airfoil.coords['u']['x'], 'yu': airfoil.coords['u']['y'],
-                                 'xd': airfoil.coords['d']['x'], 'yd': airfoil.coords['d']['y']})
-        else:
-            print(Fore.RED + 'Unknown bears!' + Fore.RESET)
-            print('Use "pandas" or "polars"!')
+            return pl.concat([pl.DataFrame({'xu': airfoil.coords['u']['x'], 'yu': airfoil.coords['u']['y']}),
+                              pl.DataFrame({'xd': airfoil.coords['d']['x'], 'yd': airfoil.coords['d']['y']})],
+                             how='horizontal')
+        print(Fore.RED + 'Unknown bears!' + Fore.RESET)
+        print('Use "pandas" or "polars"!')
 
     @property
     @timeit()
@@ -657,7 +657,7 @@ class Grate:
             x += epsrel ** 2 * cosfromtan(dfdx(x, Fd))
 
         j0 = 0  # начальный индекс искомого перпендикуляра
-        for i in tqdm(range(len(Ld))):
+        for i in tqdm(range(len(Ld)), desc='Channel calculation'):
             epsilon = inf
             for j in range(j0, len(Lu)):
 
@@ -744,44 +744,45 @@ class Grate:
 if __name__ == '__main__':
     Airfoil.rnd = 4
 
-    if 0:
-        airfoil = Airfoil('BMSTU', 20)
-
-        airfoil.xg_b = 0.35
-        airfoil.r_inlet_b = 0.06
-        airfoil.r_outlet_b = 0.03
-        airfoil.g_ = 0.5
-        airfoil.g_inlet = radians(25)
-        airfoil.g_outlet = radians(10)
-        airfoil.e = radians(110)
+    airfoils = list()
 
     if 1:
-        airfoil = Airfoil('NACA', 40)
+        airfoils.append(Airfoil('BMSTU', 20))
 
-        airfoil.c_b = 0.24
-        airfoil.f_b = 0.05
-        airfoil.xf_b = 0.3
+        airfoils[-1].xg_b = 0.35
+        airfoils[-1].r_inlet_b = 0.06
+        airfoils[-1].r_outlet_b = 0.03
+        airfoils[-1].g_ = 0.5
+        airfoils[-1].g_inlet = radians(25)
+        airfoils[-1].g_outlet = radians(10)
+        airfoils[-1].e = radians(110)
 
-    airfoil.solve()
-    airfoil.find_circles()
-    airfoil.find_circles()
-    airfoil.show()
+    if 1:
+        airfoils.append(Airfoil('NACA', 40))
 
-    print(airfoil.to_dataframe(bears='pandas'))
-    print(airfoil.to_dataframe(bears='polars'))
+        airfoils[-1].c_b = 0.24
+        airfoils[-1].f_b = 0.05
+        airfoils[-1].xf_b = 0.3
 
-    print(Fore.MAGENTA + 'airfoil properties:' + Fore.RESET)
-    for k, v in airfoil.properties.items(): print(f'{k}: {v}')
+    for airfoil in airfoils:
+        airfoil.solve()
+        airfoil.show()
 
-    airfoil.export()
+        print(airfoil.to_dataframe(bears='pandas'))
+        print(airfoil.to_dataframe(bears='polars'))
 
-    grate = Grate(airfoil, radians(40), 0.8, N=20)  # относ. шаг профиля, угол установки профиля
+        print(Fore.MAGENTA + 'airfoil properties:' + Fore.RESET)
+        for k, v in airfoil.properties.items(): print(f'{k}: {v}')
 
-    grate.solve()
-    grate.show()
+        airfoil.export()
 
-    # print(grate.to_dataframe())
-    # print(grate.to_dataframe(bears='polars'))
+        grate = Grate(airfoil, radians(40), 0.8, N=20)  # относ. шаг профиля, угол установки профиля
 
-    print(Fore.MAGENTA + 'grate properties:' + Fore.RESET)
-    for k, v in grate.properties.items(): print(f'{k}: {v}')
+        grate.solve()
+        grate.show()
+
+        # print(grate.to_dataframe())
+        # print(grate.to_dataframe(bears='polars'))
+
+        # print(Fore.MAGENTA + 'grate properties:' + Fore.RESET)
+        # for k, v in grate.properties.items(): print(f'{k}: {v}')
