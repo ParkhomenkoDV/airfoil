@@ -12,7 +12,7 @@ import polars as pl
 
 from curves import BernsteinCurve
 
-sys.path.append('D:/Programming/Python')
+sys.path.append('D:/Programming/Python/scripts')
 
 from tools import export2, isnum, COOR, LINE, Axis, angle, rounding, eps, dist, dist2line, isiter
 from decorators import timeit
@@ -746,8 +746,139 @@ if __name__ == '__main__':
     Airfoil.rnd = 4
 
     airfoils = list()
+    if 0:
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1кор'
 
-    if 1:
+            airfoils[-1].xg_b = 0.4
+            airfoils[-1].r_inlet_b = 0.02
+            airfoils[-1].r_outlet_b = 0.01
+            airfoils[-1].g_ = 0.5
+            airfoils[-1].g_inlet = radians(20)
+            airfoils[-1].g_outlet = radians(10)
+            airfoils[-1].e = radians(46.64 - 92.87 + 180)
+
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1ср'
+
+            airfoils[-1].xg_b = 0.4
+            airfoils[-1].r_inlet_b = 0.01
+            airfoils[-1].r_outlet_b = 0.01
+            airfoils[-1].g_ = 0.5
+            airfoils[-1].g_inlet = radians(15)
+            airfoils[-1].g_outlet = radians(10)
+            airfoils[-1].e = radians(32.57 - 50.62 + 180)
+
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1пер'
+
+            airfoils[-1].xg_b = 0.4
+            airfoils[-1].r_inlet_b = 0.01
+            airfoils[-1].r_outlet_b = 0.01
+            airfoils[-1].g_ = 0.5
+            airfoils[-1].g_inlet = radians(5)
+            airfoils[-1].g_outlet = radians(5)
+            airfoils[-1].e = radians(26.06 - 36.07 + 180)
+    if 0:
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'НА1кор'
+
+            airfoils[-1].xg_b = 0.45
+            airfoils[-1].r_inlet_b = 0.02
+            airfoils[-1].r_outlet_b = 0.01
+            airfoils[-1].g_ = 0.5
+            airfoils[-1].g_inlet = radians(5)
+            airfoils[-1].g_outlet = radians(5)
+            airfoils[-1].e = radians(37.75 - 75.52 + 180)
+
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'НА1ср'
+
+            airfoils[-1].xg_b = 0.45
+            airfoils[-1].r_inlet_b = 0.03
+            airfoils[-1].r_outlet_b = 0.01
+            airfoils[-1].g_ = 0.5
+            airfoils[-1].g_inlet = radians(15)
+            airfoils[-1].g_outlet = radians(10)
+            airfoils[-1].e = radians(45.06 - 71.05 + 180)
+
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'НА1пер'
+
+            airfoils[-1].xg_b = 0.45
+            airfoils[-1].r_inlet_b = 0.04
+            airfoils[-1].r_outlet_b = 0.02
+            airfoils[-1].g_ = 0.5
+            airfoils[-1].g_inlet = radians(17)
+            airfoils[-1].g_outlet = radians(10)
+            airfoils[-1].e = radians(48.26 - 66.91 + 180)
+
+    if 0:
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'СА1кор'
+
+            airfoils[-1].xg_b = 0.3
+            airfoils[-1].r_inlet_b = 0.025
+            airfoils[-1].r_outlet_b = 0.015
+            airfoils[-1].g_ = 0.5
+            airfoils[-1].g_inlet = radians(15)
+            airfoils[-1].g_outlet = radians(5)
+            airfoils[-1].e = radians(90 + 21.76)
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'СА1ср'
+
+            airfoils[-1].xg_b = 0.3
+            airfoils[-1].r_inlet_b = 0.035
+            airfoils[-1].r_outlet_b = 0.02
+            airfoils[-1].g_ = 0.5
+            airfoils[-1].g_inlet = radians(20)
+            airfoils[-1].g_outlet = radians(10)
+            airfoils[-1].e = radians(90 + 24.79)
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'СА1пер'
+
+            airfoils[-1].xg_b = 0.3
+            airfoils[-1].r_inlet_b = 0.045
+            airfoils[-1].r_outlet_b = 0.025
+            airfoils[-1].g_ = 0.5
+            airfoils[-1].g_inlet = radians(25)
+            airfoils[-1].g_outlet = radians(15)
+            airfoils[-1].e = radians(90 + 27.71)
+    if 0:
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1кор'
+
+            airfoils[-1].xg_b = 0.3
+            airfoils[-1].r_inlet_b = 0.045
+            airfoils[-1].r_outlet_b = 0.025
+            airfoils[-1].g_ = 0.5
+            airfoils[-1].g_inlet = radians(25)
+            airfoils[-1].g_outlet = radians(15)
+            airfoils[-1].e = radians(130.36 - 33.84 + 180)
+
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1ср'
+
+            airfoils[-1].xg_b = 0.3
+            airfoils[-1].r_inlet_b = 0.035
+            airfoils[-1].r_outlet_b = 0.02
+            airfoils[-1].g_ = 1
+            airfoils[-1].g_inlet = radians(15)
+            airfoils[-1].g_outlet = radians(10)
+            airfoils[-1].e = radians(100.96 - 28.68 + 180)
+
+        if 0:
+            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1пер'
+
+            airfoils[-1].xg_b = 0.3
+            airfoils[-1].r_inlet_b = 0.025
+            airfoils[-1].r_outlet_b = 0.015
+            airfoils[-1].g_ = 0.5
+            airfoils[-1].g_inlet = radians(15)
+            airfoils[-1].g_outlet = radians(5)
+            airfoils[-1].e = radians(69.16 - 24.82 + 90)
+
+    if 0:
         airfoils.append(Airfoil('BMSTU', 20))
 
         airfoils[-1].xg_b = 0.35
@@ -758,19 +889,19 @@ if __name__ == '__main__':
         airfoils[-1].g_outlet = radians(10)
         airfoils[-1].e = radians(110)
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('NACA', 40))
 
         airfoils[-1].c_b = 0.24
         airfoils[-1].f_b = 0.05
         airfoils[-1].xf_b = 0.3
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('MYNK', 20))
 
         airfoils[-1].h = 0.1
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('BEZIER', 30))
 
         airfoils[-1].u = ((0.0, 0.0), (0.05, 0.100), (0.35, 0.200), (1.0, 0.0))
@@ -788,7 +919,21 @@ if __name__ == '__main__':
 
         airfoil.export()
 
-        grate = Grate(airfoil, radians(40), 0.8, N=20)  # относ. шаг профиля, угол установки профиля
+        # grate = Grate(airfoil, radians(-46.23), 1 / 1.698, N=20)  # относ. шаг профиля, угол установки профиля
+
+        # grate = Grate(airfoil, radians(-46.23), 1/1.698, N=20)  # относ. шаг профиля, угол установки профиля
+        # grate = Grate(airfoil, radians(-18.05), 1/1.328, N=20)  # относ. шаг профиля, угол установки профиля
+        # grate = Grate(airfoil, radians(-10.02), 1/1.179, N=20)  # относ. шаг профиля, угол установки профиля
+        # grate = Grate(airfoil, radians(-37.78), 1/1.576, N=20)  # относ. шаг профиля, угол установки профиля
+        # grate = Grate(airfoil, radians(-25.98), 1/1.098, N=20)  # относ. шаг профиля, угол установки профиля
+        # grate = Grate(airfoil, radians(-18.64), 1/0.893, N=20)  # относ. шаг профиля, угол установки профиля
+
+        # grate = Grate(airfoil, radians(40), 0.6302, N=20)  # относ. шаг профиля, угол установки профиля
+        # grate = Grate(airfoil, radians(42), 0.7270, N=20)  # относ. шаг профиля, угол установки профиля
+        # grate = Grate(airfoil, radians(44), 0.8239, N=20)  # относ. шаг профиля, угол установки профиля
+        # grate = Grate(airfoil, radians(30), 0.7071, N=20)  # относ. шаг профиля, угол установки профиля
+        # grate = Grate(airfoil, radians(40), 0.9409, N=20)  # относ. шаг профиля, угол установки профиля
+        # grate = Grate(airfoil, radians(50), 1.2332, N=20)  # относ. шаг профиля, угол установки профиля
 
         grate.solve()
         grate.show()
