@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import polars as pl
 
-from curves import BernsteinCurve
+from curves import bernstein_curve
 
 sys.path.append('D:/Programming/Python/scripts')
 
@@ -29,8 +29,8 @@ class Airfoil:
     def __init__(self, method: str, N: int = __Nrecomend):
         self.__method = method  # метод построения аэродинамического профиля
         self.__N = N  # количество точек дискретизации
-        self.coords = {'u': {'x': [], 'y': []},
-                       'd': {'x': [], 'y': []}}
+        self.coords = {'u': {'x': list(), 'y': list()},
+                       'l': {'x': list(), 'y': list()}}
         self.__props = dict()
 
     def __str__(self) -> str:
@@ -72,7 +72,7 @@ class Airfoil:
         self.__method = ''
         self.__N = self.__Nrecomend
         self.coords = {'u': {'x': [], 'y': []},
-                       'd': {'x': [], 'y': []}}
+                       'l': {'x': [], 'y': []}}
         self.__props = dict()
 
     def input(self):
@@ -135,6 +135,11 @@ class Airfoil:
             assert hasattr(self, 'h'), assert_sms + 'hasattr(self, "h")'
             assert type(self.h) in (int, float), assert_sms + 'type(self.h) in (int, float)'
             assert 0 <= self.h <= 1, assert_sms + '0 <= self.h <= 1'
+
+        if self.method.upper() in ('PARSEC',):
+            assert hasattr(self, 'r_inlet_b'), assert_sms + 'hasattr(self, "r_inlet_b")'
+            assert type(self.r_inlet_b) in (int, float), assert_sms + 'type(self.r_inlet_b) in (int, float)'
+            assert 0 <= self.r_inlet_b <= 1, assert_sms + '0 <= self.r_inlet_b <= 1'
 
         if self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
             assert hasattr(self, 'u'), assert_sms + 'hasattr(self, "u")'
@@ -241,15 +246,15 @@ class Airfoil:
         an = angle(points=((0, self.__O_inlet[1]), self.__O_inlet, (xclc_i_d, yclc_i_d)))
         if xclc_i_d > self.__O_inlet[0]: an = pi - an
         for a in arange(0, an, an / self.__N):
-            self.coords['d']['x'].append(self.r_inlet_b * (1 - cos(a)))
-            self.coords['d']['y'].append(self.__O_inlet[1] - self.r_inlet_b * sin(a))
+            self.coords['l']['x'].append(self.r_inlet_b * (1 - cos(a)))
+            self.coords['l']['y'].append(self.__O_inlet[1] - self.r_inlet_b * sin(a))
 
-        xu, yu = BernsteinCurve(((xclc_i_u, yclc_i_u), (xcl_u, ycl_u), (xclc_e_u, yclc_e_u)), N=self.__N).T.tolist()
-        xd, yd = BernsteinCurve(((xclc_i_d, yclc_i_d), (xcl_d, ycl_d), (xclc_e_d, yclc_e_d)), N=self.__N).T.tolist()
+        xu, yu = bernstein_curve(((xclc_i_u, yclc_i_u), (xcl_u, ycl_u), (xclc_e_u, yclc_e_u)), N=self.__N).T.tolist()
+        xd, yd = bernstein_curve(((xclc_i_d, yclc_i_d), (xcl_d, ycl_d), (xclc_e_d, yclc_e_d)), N=self.__N).T.tolist()
         self.coords['u']['x'] += xu
         self.coords['u']['y'] += yu
-        self.coords['d']['x'] += xd
-        self.coords['d']['y'] += yd
+        self.coords['l']['x'] += xd
+        self.coords['l']['y'] += yd
 
         an = angle(points=((1, self.__O_outlet[1]), self.__O_outlet, (xclc_e_u, yclc_e_u)))
         if self.__O_outlet[0] > xclc_e_u: an = pi - an
@@ -260,8 +265,8 @@ class Airfoil:
         an = angle(points=((1, self.__O_outlet[1]), self.__O_outlet, (xclc_e_d, yclc_e_d)))
         if self.__O_outlet[0] > xclc_e_d: an = pi - an
         for a in arange(0, an, an / self.__N):
-            self.coords['d']['x'].insert(2 * self.__N, 1 - self.r_outlet_b * (1 - cos(a)))
-            self.coords['d']['y'].insert(2 * self.__N, self.__O_outlet[1] - self.r_outlet_b * sin(a))
+            self.coords['l']['x'].insert(2 * self.__N, 1 - self.r_outlet_b * (1 - cos(a)))
+            self.coords['l']['y'].insert(2 * self.__N, self.__O_outlet[1] - self.r_outlet_b * sin(a))
 
     def NACA(self, closed=True):
         i = arange(self.__N)
@@ -285,27 +290,27 @@ class Airfoil:
         sin_tetta, cos_tetta = np.sin(tetta), np.cos(tetta)  # предварительный расчет для ускорения работы
 
         self.coords['u']['x'], self.coords['u']['y'] = x - yc * sin_tetta, yf + yc * cos_tetta
-        self.coords['d']['x'], self.coords['d']['y'] = x + yc * sin_tetta, yf - yc * cos_tetta
+        self.coords['l']['x'], self.coords['l']['y'] = x + yc * sin_tetta, yf - yc * cos_tetta
 
-        x_min = min(np.min(self.coords['u']['x']), np.min(self.coords['d']['x']))
-        x_max = max(np.max(self.coords['u']['x']), np.max(self.coords['d']['x']))
+        x_min = min(np.min(self.coords['u']['x']), np.min(self.coords['l']['x']))
+        x_max = max(np.max(self.coords['u']['x']), np.max(self.coords['l']['x']))
         scale = abs(x_max - x_min)
         self.transform(x0=x_min, scale=1 / scale, inplace=True)
 
         # отсечка значений спинки корыту и наоборот
         Xu = (self.coords['u']['x'][self.coords['u']['x'].index(min(self.coords['u']['x'])):] +
-              list(reversed(self.coords['d']['x'][
-                            self.coords['d']['x'].index(max(self.coords['d']['x'])):len(self.coords['d']['x']) - 1])))
+              list(reversed(self.coords['l']['x'][
+                            self.coords['l']['x'].index(max(self.coords['l']['x'])):len(self.coords['l']['x']) - 1])))
         Yu = (self.coords['u']['y'][self.coords['u']['x'].index(min(self.coords['u']['x'])):] +
-              list(reversed(self.coords['d']['y'][
-                            self.coords['d']['x'].index(max(self.coords['d']['x'])):len(self.coords['d']['x']) - 1])))
+              list(reversed(self.coords['l']['y'][
+                            self.coords['l']['x'].index(max(self.coords['l']['x'])):len(self.coords['l']['x']) - 1])))
         Xd = list(reversed(self.coords['u']['x'][1:self.coords['u']['x'].index(min(self.coords['u']['x'])) + 1])) + \
-             self.coords['d']['x'][:self.coords['d']['x'].index(max(self.coords['d']['x'])) + 1]
+             self.coords['l']['x'][:self.coords['l']['x'].index(max(self.coords['l']['x'])) + 1]
         Yd = list(reversed(self.coords['u']['y'][1:self.coords['u']['x'].index(min(self.coords['u']['x'])) + 1])) + \
-             self.coords['d']['y'][:self.coords['d']['x'].index(max(self.coords['d']['x'])) + 1]
+             self.coords['l']['y'][:self.coords['l']['x'].index(max(self.coords['l']['x'])) + 1]
 
         self.coords['u']['x'], self.coords['u']['y'] = Xu, Yu
-        self.coords['d']['x'], self.coords['d']['y'] = Xd, Yd
+        self.coords['l']['x'], self.coords['l']['y'] = Xd, Yd
 
         self.find_circles()
 
@@ -313,8 +318,8 @@ class Airfoil:
         x = linspace(0, 1, self.__N)
         self.coords['u']['x'] = x
         self.coords['u']['y'] = self.h * (0.25 * (-x - 17 * x ** 2 - 6 * x ** 3) + x ** 0.87 * (1 - x) ** 0.56)
-        self.coords['d']['x'] = x
-        self.coords['d']['y'] = self.h * (0.25 * (-x - 17 * x ** 2 - 6 * x ** 3) - x ** 0.87 * (1 - x) ** 0.56)
+        self.coords['l']['x'] = x
+        self.coords['l']['y'] = self.h * (0.25 * (-x - 17 * x ** 2 - 6 * x ** 3) - x ** 0.87 * (1 - x) ** 0.56)
 
         angle = arctan((self.coords['u']['y'][-1] - self.coords['u']['y'][0]) / (1 - 0))
         scale = dist((self.coords['u']['x'][0], self.coords['u']['y'][0]),
@@ -323,16 +328,79 @@ class Airfoil:
 
         self.find_circles()
 
+    def __parsec_coefficients(self, surface: str,
+                              radius_inlet: float | int,
+                              c_b: tuple, d2y_dx2_surface,
+                              outlet: tuple, thetta_outlet_surface: float | int):
+        """PARSEC coefficients"""
+        assert surface in ('l', 'u')
+
+        x_c_b, y_c_b = c_b
+        x_outlet, y_outlet = outlet
+
+        coef = np.zeros(6)  # Initialize coefficients
+
+        # 1st coefficient depends on surface (pressure or suction)
+        coef[0] = -sqrt(2 * radius_inlet) if surface == 'l' else sqrt(2 * radius_inlet)
+
+        # Form system of equations
+        A = array([
+            [x_outlet ** 1.5, x_outlet ** 2.5, x_outlet ** 3.5, x_outlet ** 4.5, x_outlet ** 5.5],
+            [x_c_b ** 1.5, x_c_b ** 2.5, x_c_b ** 3.5, x_c_b ** 4.5, x_c_b ** 5.5],
+            [1.5 * sqrt(x_outlet), 2.5 * x_outlet ** 1.5, 3.5 * x_outlet ** 2.5, 4.5 * x_outlet ** 3.5,
+             5.5 * x_outlet ** 4.5],
+            [1.5 * sqrt(x_c_b), 2.5 * x_c_b ** 1.5, 3.5 * x_c_b ** 2.5, 4.5 * x_c_b ** 3.5, 5.5 * x_c_b ** 4.5],
+            [0.75 * (1 / sqrt(x_c_b)), 3.75 * sqrt(x_c_b), 8.75 * x_c_b ** 1.5, 15.75 * x_c_b ** 2.5,
+             24.75 * x_c_b ** 3.5]
+        ])
+
+        B = array([
+            [y_outlet - coef[0] * sqrt(x_outlet)],
+            [y_c_b - coef[0] * sqrt(x_c_b)],
+            [tan(thetta_outlet_surface * pi / 180) - 0.5 * coef[0] * (1 / sqrt(x_outlet))],
+            [-0.5 * coef[0] * (1 / sqrt(x_c_b))],
+            [d2y_dx2_surface + 0.25 * coef[0] * x_c_b ** (-1.5)]
+        ])
+
+        X = np.linalg.solve(A, B)  # Solve system of linear equations
+        coef[1:6] = X[0:5, 0]  # Gather all coefficients
+
+        return coef
+
+    def PARSEC(self):
+        """
+        Generate and plot the contour of an airfoil using the PARSEC parameterization
+        H. Sobieczky, *'Parametric airfoils and wings'* in *Notes on Numerical Fluid Mechanics*, Vol. 68, pp 71-88]
+        (www.as.dlr.de/hs/h-pdf/H141.pdf)
+        Repository & documentation: http://github.com/dqsis/parsec-airfoils
+        """
+
+        # поверхностные коэффициенты давления спинки и корыта
+        cf_u = self.__parsec_coefficients('u', self.r_inlet_b,
+                                          (self.x_suc, self.y_suc), self.d2y_dx2_u,
+                                          (1, 0), self.th_suc)
+        cf_l = self.__parsec_coefficients('l', self.r_inlet_b,
+                                          (self.x_pre, self.y_pre), self.d2y_dx2_l,
+                                          (1, 0), self.thetta_pre)
+
+        self.coords['u']['x'] = linspace(0, 1, self.__N)
+        self.coords['u']['y'] = sum([cf_u[i] * self.coords['u']['x'] ** (i + 0.5) for i in range(6)])
+        self.coords['l']['x'] = linspace(1, 0, self.__N)
+        self.coords['l']['y'] = sum([cf_l[i] * self.coords['l']['x'] ** (i + 0.5) for i in range(6)])
+        self.coords['l']['x'], self.coords['l']['y'] = self.coords['l']['x'][::-1], self.coords['l']['y'][::-1]
+
+        self.find_circles()
+
     def Bezier(self):
-        self.coords['u']['x'], self.coords['u']['y'] = BernsteinCurve(self.u, N=self.__N).T
-        self.coords['d']['x'], self.coords['d']['y'] = BernsteinCurve(self.l, N=self.__N).T
+        self.coords['u']['x'], self.coords['u']['y'] = bernstein_curve(self.u, N=self.__N).T
+        self.coords['l']['x'], self.coords['l']['y'] = bernstein_curve(self.l, N=self.__N).T
 
         self.find_circles()
 
     @timeit()
     def solve(self):
         self.__props = dict()
-        self.coords['u'], self.coords['d'] = {'x': [], 'y': []}, {'x': [], 'y': []}
+        self.coords['u'], self.coords['l'] = {'x': [], 'y': []}, {'x': [], 'y': []}
         self.validate()
 
         if self.method.upper() in ('NACA', 'N.A.C.A.'):
@@ -341,6 +409,8 @@ class Airfoil:
             self.BMSTU()
         elif self.method.upper() in ('MYNK', 'МУНК'):
             self.MYNK()
+        elif self.method.upper() in ('PARSEC',):
+            self.PARSEC()
         elif self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
             self.Bezier()
         elif self.method.upper() in ('MANUAL', 'ВРУЧНУЮ'):
@@ -352,22 +422,22 @@ class Airfoil:
         """Перенос-поворот кривых спинки и корыта профиля"""
 
         xun, yun = [nan] * len(self.coords['u']['x']), [nan] * len(self.coords['u']['x'])
-        xdn, ydn = [nan] * len(self.coords['d']['x']), [nan] * len(self.coords['d']['x'])
+        xdn, ydn = [nan] * len(self.coords['l']['x']), [nan] * len(self.coords['l']['x'])
 
         for i in range(len(self.coords['u']['x'])):
             xun[i], yun[i] = Axis.transform(self.coords['u']['x'][i], self.coords['u']['y'][i],
                                             x0, y0, angle, scale)
 
-        for i in range(len(self.coords['d']['x'])):
-            xdn[i], ydn[i] = Axis.transform(self.coords['d']['x'][i], self.coords['d']['y'][i],
+        for i in range(len(self.coords['l']['x'])):
+            xdn[i], ydn[i] = Axis.transform(self.coords['l']['x'][i], self.coords['l']['y'][i],
                                             x0, y0, angle, scale)
 
         if inplace:
             self.coords['u']['x'], self.coords['u']['y'] = xun, yun
-            self.coords['d']['x'], self.coords['d']['y'] = xdn, ydn
+            self.coords['l']['x'], self.coords['l']['y'] = xdn, ydn
 
         return {'u': {'x': xun, 'y': yun},
-                'd': {'x': xdn, 'y': ydn}}
+                'l': {'x': xdn, 'y': ydn}}
 
     def find_circles(self) -> dict:
         """Поиск радиусов окружностей входной и выходной кромок"""
@@ -376,7 +446,7 @@ class Airfoil:
                     'outlet': {'O': self.__O_outlet, 'r': self.r_outlet_b}}
 
         Fu = interpolate.interp1d(*self.coords['u'].values(), kind='quadratic', fill_value='extrapolate')
-        Fd = interpolate.interp1d(*self.coords['d'].values(), kind='quadratic', fill_value='extrapolate')
+        Fd = interpolate.interp1d(*self.coords['l'].values(), kind='quadratic', fill_value='extrapolate')
 
         dx = 0.000_1
 
@@ -436,7 +506,7 @@ class Airfoil:
         plt.xlim([0, 1])
 
         plt.plot(self.coords['u']['x'], self.coords['u']['y'], ls='-', color='blue', linewidth=2)
-        plt.plot(self.coords['d']['x'], self.coords['d']['y'], ls='-', color='red', linewidth=2)
+        plt.plot(self.coords['l']['x'], self.coords['l']['y'], ls='-', color='red', linewidth=2)
         x_inlet, y_inlet, x_outlet, y_outlet = [], [], [], []
         for alpha in linspace(0, 2 * pi, 360):
             x_inlet.append(self.r_inlet_b * cos(alpha) + self.__O_inlet[0])
@@ -453,7 +523,7 @@ class Airfoil:
         plt.xlim([0, 1])
 
         plt.plot(self.coords['u']['x'], self.coords['u']['y'], ls='-', color='black', linewidth=2)
-        plt.plot(self.coords['d']['x'], self.coords['d']['y'], ls='-', color='black', linewidth=2)
+        plt.plot(self.coords['l']['x'], self.coords['l']['y'], ls='-', color='black', linewidth=2)
 
         fg.add_subplot(gs[0, 3])
         plt.title('Properties')
@@ -465,16 +535,16 @@ class Airfoil:
 
         if savefig:
             export2(plt, file_path='exports/airfoil', file_name='airfoil', file_extension='png', show_time=False)
-
+        plt.tight_layout()
         plt.show()
 
     def to_dataframe(self, bears: str = 'pandas'):
         if bears.strip().lower() == 'pandas':
             return pd.DataFrame({'xu': pd.Series(airfoil.coords['u']['x']), 'yu': pd.Series(airfoil.coords['u']['y']),
-                                 'xd': pd.Series(airfoil.coords['d']['x']), 'yd': pd.Series(airfoil.coords['d']['y'])})
+                                 'xd': pd.Series(airfoil.coords['l']['x']), 'yd': pd.Series(airfoil.coords['l']['y'])})
         if bears.strip().lower() == 'polars':
             return pl.concat([pl.DataFrame({'xu': airfoil.coords['u']['x'], 'yu': airfoil.coords['u']['y']}),
-                              pl.DataFrame({'xd': airfoil.coords['d']['x'], 'yd': airfoil.coords['d']['y']})],
+                              pl.DataFrame({'xl': airfoil.coords['l']['x'], 'yl': airfoil.coords['l']['y']})],
                              how='horizontal')
         print(Fore.RED + 'Unknown bears!' + Fore.RESET)
         print('Use "pandas" or "polars"!')
@@ -485,7 +555,7 @@ class Airfoil:
         if self.__props: return self.__props
 
         Yup = interpolate.interp1d(*self.coords['u'].values(), kind='quadratic', fill_value='extrapolate')
-        Ydown = interpolate.interp1d(*self.coords['d'].values(), kind='quadratic', fill_value='extrapolate')
+        Ydown = interpolate.interp1d(*self.coords['l'].values(), kind='quadratic', fill_value='extrapolate')
 
         self.__props['a_b'] = integrate.dblquad(lambda _, __: 1, 0, 1, lambda xu: Ydown(xu), lambda xd: Yup(xd),
                                                 epsrel=epsrel)[0]
@@ -585,11 +655,11 @@ class Grate:
 
     @timeit()
     def solve(self):
-        self.coords['u'], self.coords['d'] = {'x': [], 'y': []}, {'x': [], 'y': []}
+        self.coords['u'], self.coords['l'] = {'x': [], 'y': []}, {'x': [], 'y': []}
 
         dct = self.__airfoil.transform(self.__airfoil.properties['x0'], self.__airfoil.properties['y0'],
                                        self.gamma, scale=1, inplace=False)
-        XuG, YuG, XdG, YdG = dct['u']['x'], dct['u']['y'], dct['d']['x'], dct['d']['y']
+        XuG, YuG, XdG, YdG = dct['u']['x'], dct['u']['y'], dct['l']['x'], dct['l']['y']
         del dct
 
         # отсечка значений спинки корыту и наоборот
@@ -605,7 +675,7 @@ class Grate:
             YdGt = list(reversed(YuG[1:XuG.index(min(XuG)) + 1])) + YdG[:XdG.index(max(XdG)) + 1]
 
         self.coords['u']['x'], self.coords['u']['y'] = XuGt, YuGt
-        self.coords['d']['x'], self.coords['d']['y'] = XdGt, YdGt
+        self.coords['l']['x'], self.coords['l']['y'] = XdGt, YdGt
 
         return self.coords
 
@@ -616,14 +686,14 @@ class Grate:
         if self.__props: return self.__props
 
         # kind='cubic' необходим для гладкости производной
-        Fd = interpolate.interp1d(self.coords['d']['x'], [y + self.__t_b / 2 for y in self.coords['d']['y']],
+        Fd = interpolate.interp1d(self.coords['l']['x'], [y + self.__t_b / 2 for y in self.coords['l']['y']],
                                   kind='cubic', fill_value='extrapolate')
         Fu = interpolate.interp1d(self.coords['u']['x'], [y - self.__t_b / 2 for y in self.coords['u']['y']],
                                   kind='cubic', fill_value='extrapolate')
 
-        xgmin = min(self.coords['u']['x'] + self.coords['d']['x']) + self.__airfoil.r_inlet_b
-        ygmin = min(self.coords['d']['y']) - self.__t_b / 2
-        xgmax = max(self.coords['u']['x'] + self.coords['d']['x']) - self.__airfoil.r_outlet_b
+        xgmin = min(self.coords['u']['x'] + self.coords['l']['x']) + self.__airfoil.r_inlet_b
+        ygmin = min(self.coords['l']['y']) - self.__t_b / 2
+        xgmax = max(self.coords['u']['x'] + self.coords['l']['x']) - self.__airfoil.r_outlet_b
         ygmax = max(self.coords['u']['y']) + self.__t_b / 2
 
         self.d, self.xd, self.yd = [], [], []
@@ -708,24 +778,24 @@ class Grate:
         plt.title('Lattice')
         plt.grid(True)
         plt.axis('square')
-        plt.xlim(floor(min(self.coords['u']['x'] + self.coords['d']['x'])),
-                 ceil(max(self.coords['u']['x'] + self.coords['d']['x'])))
+        plt.xlim(floor(min(self.coords['u']['x'] + self.coords['l']['x'])),
+                 ceil(max(self.coords['u']['x'] + self.coords['l']['x'])))
         plt.ylim(-1, 1)
         for i in range(len(self.d)):
             plt.plot(list(self.d[i] / 2 * cos(alpha) + self.xd[i] for alpha in linspace(0, 2 * pi, 360)),
                      list(self.d[i] / 2 * sin(alpha) + self.yd[i] for alpha in linspace(0, 2 * pi, 360)),
                      ls='-', color=(0, 1, 0))
         plt.plot(self.xd, self.yd, ls='--', color=(1, 0, 1))
-        plt.plot([min(self.coords['u']['x'] + self.coords['d']['x'])] * 2, [-1, 1],
-                 [max(self.coords['u']['x'] + self.coords['d']['x'])] * 2, [-1, 1],
+        plt.plot([min(self.coords['u']['x'] + self.coords['l']['x'])] * 2, [-1, 1],
+                 [max(self.coords['u']['x'] + self.coords['l']['x'])] * 2, [-1, 1],
                  ls='-', color=(0, 0, 0))  # границы решетки
         plt.plot(self.coords['u']['x'], list(y - self.__t_b / 2 for y in self.coords['u']['y']),
                  ls='-', color=(0, 0, 0))
-        plt.plot(self.coords['d']['x'], list(y - self.__t_b / 2 for y in self.coords['d']['y']),
+        plt.plot(self.coords['l']['x'], list(y - self.__t_b / 2 for y in self.coords['l']['y']),
                  ls='-', color=(0, 0, 0))
         plt.plot(self.coords['u']['x'], list(y + self.__t_b / 2 for y in self.coords['u']['y']),
                  ls='-', color=(0, 0, 0))
-        plt.plot(self.coords['d']['x'], list(y + self.__t_b / 2 for y in self.coords['d']['y']),
+        plt.plot(self.coords['l']['x'], list(y + self.__t_b / 2 for y in self.coords['l']['y']),
                  ls='-', color=(0, 0, 0))
 
         fg.add_subplot(gs[0, 1])  # позиция графика
@@ -739,6 +809,7 @@ class Grate:
         plt.plot(list((self.r[i] + self.r[i + 1]) / 2 for i in range(len(self.r) - 1)),
                  list((self.d[i + 1] - self.d[i]) / (self.r[i + 1] - self.r[i]) for i in range(len(self.r) - 1)),
                  ls='-', color=(1, 0, 0))
+        plt.tight_layout()
         plt.show()
 
 
@@ -746,139 +817,8 @@ if __name__ == '__main__':
     Airfoil.rnd = 4
 
     airfoils = list()
-    if 0:
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1кор'
 
-            airfoils[-1].xg_b = 0.4
-            airfoils[-1].r_inlet_b = 0.02
-            airfoils[-1].r_outlet_b = 0.01
-            airfoils[-1].g_ = 0.5
-            airfoils[-1].g_inlet = radians(20)
-            airfoils[-1].g_outlet = radians(10)
-            airfoils[-1].e = radians(46.64 - 92.87 + 180)
-
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1ср'
-
-            airfoils[-1].xg_b = 0.4
-            airfoils[-1].r_inlet_b = 0.01
-            airfoils[-1].r_outlet_b = 0.01
-            airfoils[-1].g_ = 0.5
-            airfoils[-1].g_inlet = radians(15)
-            airfoils[-1].g_outlet = radians(10)
-            airfoils[-1].e = radians(32.57 - 50.62 + 180)
-
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1пер'
-
-            airfoils[-1].xg_b = 0.4
-            airfoils[-1].r_inlet_b = 0.01
-            airfoils[-1].r_outlet_b = 0.01
-            airfoils[-1].g_ = 0.5
-            airfoils[-1].g_inlet = radians(5)
-            airfoils[-1].g_outlet = radians(5)
-            airfoils[-1].e = radians(26.06 - 36.07 + 180)
-    if 0:
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'НА1кор'
-
-            airfoils[-1].xg_b = 0.45
-            airfoils[-1].r_inlet_b = 0.02
-            airfoils[-1].r_outlet_b = 0.01
-            airfoils[-1].g_ = 0.5
-            airfoils[-1].g_inlet = radians(5)
-            airfoils[-1].g_outlet = radians(5)
-            airfoils[-1].e = radians(37.75 - 75.52 + 180)
-
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'НА1ср'
-
-            airfoils[-1].xg_b = 0.45
-            airfoils[-1].r_inlet_b = 0.03
-            airfoils[-1].r_outlet_b = 0.01
-            airfoils[-1].g_ = 0.5
-            airfoils[-1].g_inlet = radians(15)
-            airfoils[-1].g_outlet = radians(10)
-            airfoils[-1].e = radians(45.06 - 71.05 + 180)
-
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'НА1пер'
-
-            airfoils[-1].xg_b = 0.45
-            airfoils[-1].r_inlet_b = 0.04
-            airfoils[-1].r_outlet_b = 0.02
-            airfoils[-1].g_ = 0.5
-            airfoils[-1].g_inlet = radians(17)
-            airfoils[-1].g_outlet = radians(10)
-            airfoils[-1].e = radians(48.26 - 66.91 + 180)
-
-    if 0:
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'СА1кор'
-
-            airfoils[-1].xg_b = 0.3
-            airfoils[-1].r_inlet_b = 0.025
-            airfoils[-1].r_outlet_b = 0.015
-            airfoils[-1].g_ = 0.5
-            airfoils[-1].g_inlet = radians(15)
-            airfoils[-1].g_outlet = radians(5)
-            airfoils[-1].e = radians(90 + 21.76)
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'СА1ср'
-
-            airfoils[-1].xg_b = 0.3
-            airfoils[-1].r_inlet_b = 0.035
-            airfoils[-1].r_outlet_b = 0.02
-            airfoils[-1].g_ = 0.5
-            airfoils[-1].g_inlet = radians(20)
-            airfoils[-1].g_outlet = radians(10)
-            airfoils[-1].e = radians(90 + 24.79)
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'СА1пер'
-
-            airfoils[-1].xg_b = 0.3
-            airfoils[-1].r_inlet_b = 0.045
-            airfoils[-1].r_outlet_b = 0.025
-            airfoils[-1].g_ = 0.5
-            airfoils[-1].g_inlet = radians(25)
-            airfoils[-1].g_outlet = radians(15)
-            airfoils[-1].e = radians(90 + 27.71)
-    if 0:
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1кор'
-
-            airfoils[-1].xg_b = 0.3
-            airfoils[-1].r_inlet_b = 0.045
-            airfoils[-1].r_outlet_b = 0.025
-            airfoils[-1].g_ = 0.5
-            airfoils[-1].g_inlet = radians(25)
-            airfoils[-1].g_outlet = radians(15)
-            airfoils[-1].e = radians(130.36 - 33.84 + 180)
-
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1ср'
-
-            airfoils[-1].xg_b = 0.3
-            airfoils[-1].r_inlet_b = 0.035
-            airfoils[-1].r_outlet_b = 0.02
-            airfoils[-1].g_ = 1
-            airfoils[-1].g_inlet = radians(15)
-            airfoils[-1].g_outlet = radians(10)
-            airfoils[-1].e = radians(100.96 - 28.68 + 180)
-
-        if 0:
-            airfoils.append(Airfoil('BMSTU', 20))  # 'РК1пер'
-
-            airfoils[-1].xg_b = 0.3
-            airfoils[-1].r_inlet_b = 0.025
-            airfoils[-1].r_outlet_b = 0.015
-            airfoils[-1].g_ = 0.5
-            airfoils[-1].g_inlet = radians(15)
-            airfoils[-1].g_outlet = radians(5)
-            airfoils[-1].e = radians(69.16 - 24.82 + 90)
-
-    if 0:
+    if 1:
         airfoils.append(Airfoil('BMSTU', 20))
 
         airfoils[-1].xg_b = 0.35
@@ -889,17 +829,23 @@ if __name__ == '__main__':
         airfoils[-1].g_outlet = radians(10)
         airfoils[-1].e = radians(110)
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('NACA', 40))
 
         airfoils[-1].c_b = 0.24
         airfoils[-1].f_b = 0.05
         airfoils[-1].xf_b = 0.3
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('MYNK', 20))
 
         airfoils[-1].h = 0.1
+
+    if 1:
+        airfoils.append(Airfoil('PARSEC', 30))
+
+        airfoils[-1].r_inlet_b = 0.05
+        airfoils[-1].r_inlet_b = 0.05
 
     if 0:
         airfoils.append(Airfoil('BEZIER', 30))
@@ -919,21 +865,7 @@ if __name__ == '__main__':
 
         airfoil.export()
 
-        # grate = Grate(airfoil, radians(-46.23), 1 / 1.698, N=20)  # относ. шаг профиля, угол установки профиля
-
-        # grate = Grate(airfoil, radians(-46.23), 1/1.698, N=20)  # относ. шаг профиля, угол установки профиля
-        # grate = Grate(airfoil, radians(-18.05), 1/1.328, N=20)  # относ. шаг профиля, угол установки профиля
-        # grate = Grate(airfoil, radians(-10.02), 1/1.179, N=20)  # относ. шаг профиля, угол установки профиля
-        # grate = Grate(airfoil, radians(-37.78), 1/1.576, N=20)  # относ. шаг профиля, угол установки профиля
-        # grate = Grate(airfoil, radians(-25.98), 1/1.098, N=20)  # относ. шаг профиля, угол установки профиля
-        # grate = Grate(airfoil, radians(-18.64), 1/0.893, N=20)  # относ. шаг профиля, угол установки профиля
-
-        # grate = Grate(airfoil, radians(40), 0.6302, N=20)  # относ. шаг профиля, угол установки профиля
-        # grate = Grate(airfoil, radians(42), 0.7270, N=20)  # относ. шаг профиля, угол установки профиля
-        # grate = Grate(airfoil, radians(44), 0.8239, N=20)  # относ. шаг профиля, угол установки профиля
-        # grate = Grate(airfoil, radians(30), 0.7071, N=20)  # относ. шаг профиля, угол установки профиля
-        # grate = Grate(airfoil, radians(40), 0.9409, N=20)  # относ. шаг профиля, угол установки профиля
-        # grate = Grate(airfoil, radians(50), 1.2332, N=20)  # относ. шаг профиля, угол установки профиля
+        grate = Grate(airfoil, radians(46.23), 1 / 1.698, N=20)  # относ. шаг профиля, угол установки профиля
 
         grate.solve()
         grate.show()
