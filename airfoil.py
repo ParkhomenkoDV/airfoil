@@ -2,9 +2,9 @@ import sys
 from tqdm import tqdm
 from colorama import Fore
 
-from math import radians, degrees, sqrt, floor, ceil
+from math import radians, degrees, floor, ceil
 import numpy as np
-from numpy import linspace, arange, array, nan, inf, pi, cos, sin, tan, arctan
+from numpy import linspace, arange, array, nan, inf, pi, cos, sin, tan, arctan, sqrt
 from scipy import interpolate, integrate
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -24,9 +24,9 @@ class Airfoil:
     """Относительный аэродинамический профиль"""
 
     rnd = 4  # количество значащих цифр
-    __Nrecomend = 30  # рекомендуемое количество дискретных точек
+    __N = 30  # рекомендуемое количество дискретных точек
 
-    def __init__(self, method: str, N: int = __Nrecomend):
+    def __init__(self, method: str, N: int = __N):
         self.__method = method  # метод построения аэродинамического профиля
         self.__N = N  # количество точек дискретизации
         self.coords = {'u': {'x': list(), 'y': list()},
@@ -70,9 +70,9 @@ class Airfoil:
 
     def reset(self) -> None:
         self.__method = ''
-        self.__N = self.__Nrecomend
-        self.coords = {'u': {'x': [], 'y': []},
-                       'l': {'x': [], 'y': []}}
+        self.__N = self.__N
+        self.coords = {'u': {'x': list(), 'y': list()},
+                       'l': {'x': list(), 'y': list()}}
         self.__props = dict()
 
     def input(self):
@@ -330,34 +330,34 @@ class Airfoil:
 
     def __parsec_coefficients(self, surface: str,
                               radius_inlet: float | int,
-                              c_b: tuple, d2y_dx2_surface,
+                              c_b: tuple[float, float], d2y_dx2_surface,
                               outlet: tuple, thetta_outlet_surface: float | int):
         """PARSEC coefficients"""
         assert surface in ('l', 'u')
+        assert isinstance(c_b, (tuple, list)) and len(c_b) == 2
+        assert isinstance(outlet, (tuple, list)) and len(outlet) == 2
 
         x_c_b, y_c_b = c_b
         x_outlet, y_outlet = outlet
 
-        coef = np.zeros(6)  # Initialize coefficients
+        coef = np.zeros(6)
 
         # 1st coefficient depends on surface (pressure or suction)
         coef[0] = -sqrt(2 * radius_inlet) if surface == 'l' else sqrt(2 * radius_inlet)
 
         # Form system of equations
         A = array([
-            [x_outlet ** 1.5, x_outlet ** 2.5, x_outlet ** 3.5, x_outlet ** 4.5, x_outlet ** 5.5],
-            [x_c_b ** 1.5, x_c_b ** 2.5, x_c_b ** 3.5, x_c_b ** 4.5, x_c_b ** 5.5],
-            [1.5 * sqrt(x_outlet), 2.5 * x_outlet ** 1.5, 3.5 * x_outlet ** 2.5, 4.5 * x_outlet ** 3.5,
-             5.5 * x_outlet ** 4.5],
-            [1.5 * sqrt(x_c_b), 2.5 * x_c_b ** 1.5, 3.5 * x_c_b ** 2.5, 4.5 * x_c_b ** 3.5, 5.5 * x_c_b ** 4.5],
-            [0.75 * (1 / sqrt(x_c_b)), 3.75 * sqrt(x_c_b), 8.75 * x_c_b ** 1.5, 15.75 * x_c_b ** 2.5,
-             24.75 * x_c_b ** 3.5]
+            [x_outlet ** (i + 0.5) for i in range(1, 6, 1)],
+            [x_c_b ** (i + 0.5) for i in range(1, 6, 1)],
+            [(i + 0.5) * x_outlet ** (i - 0.5) for i in range(1, 6, 1)],
+            [(i + 0.5) * x_c_b ** (i - 0.5) for i in range(1, 6, 1)],
+            [0.75 * x_c_b ** -0.5, 3.75 * x_c_b ** 0.5, 8.75 * x_c_b ** 1.5, 15.75 * x_c_b ** 2.5, 24.75 * x_c_b ** 3.5]
         ])
 
         B = array([
             [y_outlet - coef[0] * sqrt(x_outlet)],
             [y_c_b - coef[0] * sqrt(x_c_b)],
-            [tan(thetta_outlet_surface * pi / 180) - 0.5 * coef[0] * (1 / sqrt(x_outlet))],
+            [tan(thetta_outlet_surface) - 0.5 * coef[0] * (1 / sqrt(x_outlet))],
             [-0.5 * coef[0] * (1 / sqrt(x_c_b))],
             [d2y_dx2_surface + 0.25 * coef[0] * x_c_b ** (-1.5)]
         ])
@@ -376,12 +376,8 @@ class Airfoil:
         """
 
         # поверхностные коэффициенты давления спинки и корыта
-        cf_u = self.__parsec_coefficients('u', self.r_inlet_b,
-                                          (self.x_suc, self.y_suc), self.d2y_dx2_u,
-                                          (1, 0), self.th_suc)
-        cf_l = self.__parsec_coefficients('l', self.r_inlet_b,
-                                          (self.x_pre, self.y_pre), self.d2y_dx2_l,
-                                          (1, 0), self.thetta_pre)
+        cf_u = self.__parsec_coefficients('u', self.r_inlet_b, self.c_b_u, self.d2y_dx2_u, (1, 0), self.thetta_outlet_u)
+        cf_l = self.__parsec_coefficients('l', self.r_inlet_b, self.c_b_l, self.d2y_dx2_l, (1, 0), self.thetta_outlet_l)
 
         self.coords['u']['x'] = linspace(0, 1, self.__N)
         self.coords['u']['y'] = sum([cf_u[i] * self.coords['u']['x'] ** (i + 0.5) for i in range(6)])
@@ -400,7 +396,7 @@ class Airfoil:
     @timeit()
     def solve(self):
         self.__props = dict()
-        self.coords['u'], self.coords['l'] = {'x': [], 'y': []}, {'x': [], 'y': []}
+        self.coords['u'], self.coords['l'] = {'x': list(), 'y': list()}, {'x': list(), 'y': list()}
         self.validate()
 
         if self.method.upper() in ('NACA', 'N.A.C.A.'):
@@ -822,11 +818,9 @@ if __name__ == '__main__':
         airfoils.append(Airfoil('BMSTU', 20))
 
         airfoils[-1].xg_b = 0.35
-        airfoils[-1].r_inlet_b = 0.06
-        airfoils[-1].r_outlet_b = 0.03
+        airfoils[-1].r_inlet_b, airfoils[-1].r_outlet_b = 0.06, 0.03
         airfoils[-1].g_ = 0.5
-        airfoils[-1].g_inlet = radians(25)
-        airfoils[-1].g_outlet = radians(10)
+        airfoils[-1].g_inlet, airfoils[-1].g_outlet = radians(25), radians(10)
         airfoils[-1].e = radians(110)
 
     if 1:
@@ -844,8 +838,11 @@ if __name__ == '__main__':
     if 1:
         airfoils.append(Airfoil('PARSEC', 30))
 
-        airfoils[-1].r_inlet_b = 0.05
-        airfoils[-1].r_inlet_b = 0.05
+        airfoils[-1].r_inlet_b = 0.01
+        airfoils[-1].c_b_u, airfoils[-1].c_b_l = (0.35, 0.05), (0.55, -0.05)
+        airfoils[-1].c_b_u = (0.35, 0.05)
+        airfoils[-1].d2y_dx2_u, airfoils[-1].d2y_dx2_l = -0.8, -0.5
+        airfoils[-1].thetta_outlet_u, airfoils[-1].thetta_outlet_l = radians(-6), radians(3)
 
     if 0:
         airfoils.append(Airfoil('BEZIER', 30))
