@@ -78,6 +78,7 @@ class Airfoil:
         pass
 
     def validate(self) -> bool:
+        """Проверка верности ввода атрибутов профиля по данному методу"""
 
         if self.method.upper() in ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'):
             # относ. координата пересечения входного и выходного лучей
@@ -264,16 +265,18 @@ class Airfoil:
         # точки входной окружности кромки по спинке
         an = angle(points=((0, self.__O_inlet[1]), self.__O_inlet, (xclc_i_u, yclc_i_u)))
         if xclc_i_u > self.__O_inlet[0]: an = pi - an
-        for a in arange(0, an, an / self.__N):
-            self.coords['u']['x'].append(self.r_inlet_b * (1 - cos(a)))
-            self.coords['u']['y'].append(self.__O_inlet[1] + self.r_inlet_b * sin(a))
+        # уменьшение угла для предотвращения дублирования координат
+        angles = linspace(0, an * 0.99, self.__N, endpoint=False)
+        self.coords['u']['x'] = (self.r_inlet_b * (1 - cos(angles))).tolist()
+        self.coords['u']['y'] = (self.__O_inlet[1] + self.r_inlet_b * sin(angles)).tolist()
 
         # точки входной окружности кромки по корыту
         an = angle(points=((0, self.__O_inlet[1]), self.__O_inlet, (xclc_i_d, yclc_i_d)))
         if xclc_i_d > self.__O_inlet[0]: an = pi - an
-        for a in arange(0, an, an / self.__N):
-            self.coords['l']['x'].append(self.r_inlet_b * (1 - cos(a)))
-            self.coords['l']['y'].append(self.__O_inlet[1] - self.r_inlet_b * sin(a))
+        # уменьшение угла для предотвращения дублирования координат
+        angles = linspace(0, an * 0.99, self.__N, endpoint=False)
+        self.coords['l']['x'] = (self.r_inlet_b * (1 - cos(angles))).tolist()
+        self.coords['l']['y'] = (self.__O_inlet[1] - self.r_inlet_b * sin(angles)).tolist()
 
         xu, yu = bernstein_curve(((xclc_i_u, yclc_i_u), (xcl_u, ycl_u), (xclc_e_u, yclc_e_u)), N=self.__N).T.tolist()
         xd, yd = bernstein_curve(((xclc_i_d, yclc_i_d), (xcl_d, ycl_d), (xclc_e_d, yclc_e_d)), N=self.__N).T.tolist()
@@ -282,17 +285,21 @@ class Airfoil:
         self.coords['l']['x'] += xd
         self.coords['l']['y'] += yd
 
+        # точки выходной окружности кромки по спинке
         an = angle(points=((1, self.__O_outlet[1]), self.__O_outlet, (xclc_e_u, yclc_e_u)))
         if self.__O_outlet[0] > xclc_e_u: an = pi - an
-        for a in arange(0, an, an / self.__N):
-            self.coords['u']['x'].insert(2 * self.__N, 1 - self.r_outlet_b * (1 - cos(a)))
-            self.coords['u']['y'].insert(2 * self.__N, self.__O_outlet[1] + self.r_outlet_b * sin(a))
+        # уменьшение угла для предотвращения дублирования координат
+        angles = linspace(0, an * 0.99, self.__N, endpoint=False)
+        self.coords['u']['x'] += (1 - self.r_outlet_b * (1 - cos(angles))).tolist()[::-1]
+        self.coords['u']['y'] += (self.__O_outlet[1] + self.r_outlet_b * sin(angles)).tolist()[::-1]
 
+        # точки выходной окружности кромки по корыту
         an = angle(points=((1, self.__O_outlet[1]), self.__O_outlet, (xclc_e_d, yclc_e_d)))
         if self.__O_outlet[0] > xclc_e_d: an = pi - an
-        for a in arange(0, an, an / self.__N):
-            self.coords['l']['x'].insert(2 * self.__N, 1 - self.r_outlet_b * (1 - cos(a)))
-            self.coords['l']['y'].insert(2 * self.__N, self.__O_outlet[1] - self.r_outlet_b * sin(a))
+        # уменьшение угла для предотвращения дублирования координат
+        angles = linspace(0, an * 0.99, self.__N, endpoint=False)
+        self.coords['l']['x'] += (1 - self.r_outlet_b * (1 - cos(angles))).tolist()[::-1]
+        self.coords['l']['y'] += (self.__O_outlet[1] - self.r_outlet_b * sin(angles)).tolist()[::-1]
 
     def NACA(self, closed=True):
         i = arange(self.__N)
@@ -840,12 +847,12 @@ if __name__ == '__main__':
     airfoils = list()
 
     if 1:
-        airfoils.append(Airfoil('BMSTU', 20))
+        airfoils.append(Airfoil('BMSTU', 30))
 
-        airfoils[-1].xg_b = 0.35
+        airfoils[-1].xg_b = 0.4
         airfoils[-1].r_inlet_b, airfoils[-1].r_outlet_b = 0.06, 0.03
         airfoils[-1].g_ = 0.5
-        airfoils[-1].g_inlet, airfoils[-1].g_outlet = radians(25), radians(10)
+        airfoils[-1].g_inlet, airfoils[-1].g_outlet = radians(20), radians(10)
         airfoils[-1].e = radians(110)
 
     if 1:
@@ -868,7 +875,7 @@ if __name__ == '__main__':
         airfoils[-1].d2y_dx2_u, airfoils[-1].d2y_dx2_l = -0.35, -0.2
         airfoils[-1].theta_outlet_u, airfoils[-1].theta_outlet_l = radians(-6), radians(0.05)
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('BEZIER', 30))
 
         airfoils[-1].u = ((0.0, 0.0), (0.05, 0.100), (0.35, 0.200), (1.0, 0.0))
