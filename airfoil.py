@@ -2,9 +2,8 @@ import sys
 from tqdm import tqdm
 from colorama import Fore
 
-from math import radians, degrees, floor, ceil
 import numpy as np
-from numpy import linspace, arange, array, nan, inf, pi, cos, sin, tan, arctan, sqrt
+from numpy import linspace, arange, array, nan, inf, pi, cos, sin, tan, arctan, sqrt, floor, ceil, radians, degrees
 from scipy import interpolate, integrate
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -79,82 +78,109 @@ class Airfoil:
         pass
 
     def validate(self) -> bool:
-        assert_sms = 'Incorrect condition: '
+
         if self.method.upper() in ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'):
             # относ. координата пересечения входного и выходного лучей
-            assert hasattr(self, 'xg_b'), assert_sms + 'hasattr(self, "xg_b")'
-            assert type(self.xg_b) in (int, float), assert_sms + 'type(self.xg_b) in (int, float)'
-            assert 0 <= self.xg_b <= 1, assert_sms + '0 <= self.xg_b <= 1'
+            assert hasattr(self, 'xg_b')
+            assert type(self.xg_b) in (int, float)
+            assert 0 <= self.xg_b <= 1
 
             # относ. радиус входной кромоки
-            assert hasattr(self, 'r_inlet_b'), assert_sms + 'hasattr(self, "r_inlet_b")'
-            assert type(self.r_inlet_b) in (int, float), assert_sms + 'type(self.r_inlet_b) in (int, float)'
-            assert 0 <= self.r_inlet_b <= 1, assert_sms + '0 <= self.r_inlet_b <= 1'
+            assert hasattr(self, 'r_inlet_b')
+            assert type(self.r_inlet_b) in (int, float)
+            assert 0 <= self.r_inlet_b <= 1
 
             # относ. радиус выходной кромки
-            assert hasattr(self, 'r_outlet_b'), assert_sms + 'hasattr(self, "r_outlet_b")'
-            assert type(self.r_outlet_b) in (int, float), assert_sms + 'type(self.r_outlet_b) in (int, float)'
-            assert 0 <= self.r_outlet_b <= 1, assert_sms + '0 <= self.r_outlet_b <= 1'
+            assert hasattr(self, 'r_outlet_b')
+            assert type(self.r_outlet_b) in (int, float)
+            assert 0 <= self.r_outlet_b <= 1
 
             # степень приближенности к спинке
-            assert hasattr(self, 'g_'), assert_sms + 'hasattr(self, "g_")'
-            assert type(self.g_) in (int, float), assert_sms + 'type(self.g_) in  (int,float)'
-            assert 0 <= self.g_ <= 1, assert_sms + '0 <= self.g_ <= 1'
+            assert hasattr(self, 'g_')
+            assert isinstance(self.g_, (int, float))
+            assert 0 <= self.g_ <= 1
 
             # угол раскрытия входной кромоки
-            assert hasattr(self, 'g_inlet'), assert_sms + 'hasattr(self, "g_inlet")'
-            assert type(self.g_inlet) in (int, float), assert_sms + 'type(self.g_inlet) in (int,float)'
-            assert 0 <= self.g_inlet, assert_sms + '0 <= self.g_inlet'
+            assert hasattr(self, 'g_inlet')
+            assert isinstance(self.g_inlet, (int, float, np.number))
+            assert 0 <= self.g_inlet
 
             # угол раскрытия выходной кромки
-            assert hasattr(self, 'g_outlet'), assert_sms + 'hasattr(self, "g_outlet")'
-            assert type(self.g_outlet) in (int, float), assert_sms + 'type(self.g_outlet) in (int, float)'
-            assert 0 <= self.g_outlet, assert_sms + '0 <= self.g_outlet'
+            assert hasattr(self, 'g_outlet')
+            assert isinstance(self.g_outlet, (int, float, np.number))
+            assert 0 <= self.g_outlet
 
             # угол поворота потока
-            assert hasattr(self, 'e'), assert_sms + 'hasattr(self, "e")'
-            assert type(self.e) in (int, float), assert_sms + 'type(self.e) in (int, float)'
+            assert hasattr(self, 'e')
+            assert isinstance(self.e, (int, float, np.number))
 
         if self.method.upper() in ('NACA', 'N.A.C.A.'):
             # относ. максимальная толщина профиля
-            assert hasattr(self, 'c_b'), assert_sms + 'hasattr(self, "c_b")'
-            assert type(self.c_b) in (int, float), assert_sms + 'type(self.c_b) in (int, float)'
-            assert 0 <= self.c_b <= 1, assert_sms + '0 <= self.c_b <= 1'
+            assert hasattr(self, 'c_b')
+            assert type(self.c_b) in (int, float)
+            assert 0 <= self.c_b <= 1
 
             # относ. координата максимального прогиба профиля
-            assert hasattr(self, 'xf_b'), assert_sms + 'hasattr(self, "xf_b")'
-            assert type(self.xf_b) in (int, float), assert_sms + 'type(self.xf_b) in (int, float)'
-            assert 0 <= self.xf_b <= 1, assert_sms + '0 <= self.xf_b <= 1'
+            assert hasattr(self, 'xf_b')
+            assert type(self.xf_b) in (int, float)
+            assert 0 <= self.xf_b <= 1
 
             # относ. максимальный прогиб профиля
-            assert hasattr(self, 'f_b'), assert_sms + 'hasattr(self, "f_b")'
-            assert type(self.f_b) in (int, float), assert_sms + 'type(self.f_b) in (int, float)'
-            assert 0 <= self.f_b <= 1, assert_sms + '0 <= self.f_b <= 1'
+            assert hasattr(self, 'f_b')
+            assert type(self.f_b) in (int, float)
+            assert 0 <= self.f_b <= 1
 
         if self.method.upper() in ('MYNK', 'МУНК'):
-            assert hasattr(self, 'h'), assert_sms + 'hasattr(self, "h")'
-            assert type(self.h) in (int, float), assert_sms + 'type(self.h) in (int, float)'
-            assert 0 <= self.h <= 1, assert_sms + '0 <= self.h <= 1'
+            assert hasattr(self, 'h')
+            assert type(self.h) in (int, float)
+            assert 0 <= self.h <= 1
 
         if self.method.upper() in ('PARSEC',):
-            assert hasattr(self, 'r_inlet_b'), assert_sms + 'hasattr(self, "r_inlet_b")'
-            assert type(self.r_inlet_b) in (int, float), assert_sms + 'type(self.r_inlet_b) in (int, float)'
-            assert 0 <= self.r_inlet_b <= 1, assert_sms + '0 <= self.r_inlet_b <= 1'
+            # относ. радиус входной кромки
+            assert hasattr(self, 'r_inlet_b')
+            assert type(self.r_inlet_b) in (int, float)
+            assert 0 <= self.r_inlet_b <= 1
+
+            # относ. координата максимального прогиба спинки
+            assert hasattr(self, "f_b_u")
+            assert isinstance(self.f_b_u, (tuple, list))
+            assert len(self.f_b_u) == 2
+            assert all(isinstance(x, float) for x in self.f_b_u)
+
+            # относ. координата максимального прогиба крыта
+            assert hasattr(self, "f_b_l")
+            assert isinstance(self.f_b_l, (tuple, list))
+            assert len(self.f_b_l) == 2
+            assert all(isinstance(x, float) for x in self.f_b_l)
+
+            # кривизна спинки (вторая производная поверхности)
+            assert hasattr(self, "d2y_dx2_u")
+            assert isinstance(self.d2y_dx2_u, (float, int))
+
+            # кривизна корыта (вторая производная поверхности)
+            assert hasattr(self, "d2y_dx2_l")
+            assert isinstance(self.d2y_dx2_l, (float, int))
+
+            # угол выхода между поверхностью спинки и горизонталью [рад]
+            assert hasattr(self, "theta_outlet_u")
+            assert isinstance(self.theta_outlet_u, float)
+
+            # угол выхода между поверхностью корыта и горизонталью [рад]
+            assert hasattr(self, "theta_outlet_l")
+            assert isinstance(self.theta_outlet_l, float)
 
         if self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
-            assert hasattr(self, 'u'), assert_sms + 'hasattr(self, "u")'
-            assert isiter(self.u), assert_sms + 'isiter(self.u)'
-            assert all(map(isiter, self.u)), assert_sms + 'all(map(isiter, self.u))'
-            assert all(len(el) == 2 for el in self.u), assert_sms + 'all(map(isiter, self.u))'
-            assert all(type(el) in (int, float) for itr in self.u for el in itr), (
-                    assert_sms + 'all(type(el) in (int, float) for itr in self.u for el in itr)')
+            assert hasattr(self, 'u')
+            assert isiter(self.u)
+            assert all(map(isiter, self.u))
+            assert all(len(el) == 2 for el in self.u)
+            assert all(type(el) in (int, float) for itr in self.u for el in itr)
 
-            assert hasattr(self, 'l'), assert_sms + 'hasattr(self, "l")'
-            assert isiter(self.l), assert_sms + 'isiter(self.l)'
-            assert all(map(isiter, self.l)), assert_sms + 'all(map(isiter, self.l))'
-            assert all(len(el) == 2 for el in self.l), assert_sms + 'all(map(isiter, self.l))'
-            assert all(type(el) in (int, float) for itr in self.l for el in itr), (
-                    assert_sms + 'all(type(el) in (int, float) for itr in self.l for el in itr)')
+            assert hasattr(self, 'l')
+            assert isiter(self.l)
+            assert all(map(isiter, self.l))
+            assert all(len(el) == 2 for el in self.l)
+            assert all(type(el) in (int, float) for itr in self.l for el in itr)
 
         if self.method.upper() in ('MANUAL', 'ВРУЧНУЮ'):
             pass
@@ -351,7 +377,7 @@ class Airfoil:
             [x_c_b ** (i + 0.5) for i in range(1, 6, 1)],
             [(i + 0.5) * x_outlet ** (i - 0.5) for i in range(1, 6, 1)],
             [(i + 0.5) * x_c_b ** (i - 0.5) for i in range(1, 6, 1)],
-            [0.75 * x_c_b ** -0.5, 3.75 * x_c_b ** 0.5, 8.75 * x_c_b ** 1.5, 15.75 * x_c_b ** 2.5, 24.75 * x_c_b ** 3.5]
+            [(i ** 2 - 0.25) * x_c_b ** (i - 1.5) for i in range(1, 6, 1)],
         ])
 
         B = array([
@@ -376,8 +402,8 @@ class Airfoil:
         """
 
         # поверхностные коэффициенты давления спинки и корыта
-        cf_u = self.__parsec_coefficients('u', self.r_inlet_b, self.c_b_u, self.d2y_dx2_u, (1, 0), self.thetta_outlet_u)
-        cf_l = self.__parsec_coefficients('l', self.r_inlet_b, self.c_b_l, self.d2y_dx2_l, (1, 0), self.thetta_outlet_l)
+        cf_u = self.__parsec_coefficients('u', self.r_inlet_b, self.f_b_u, self.d2y_dx2_u, (1, 0), self.theta_outlet_u)
+        cf_l = self.__parsec_coefficients('l', self.r_inlet_b, self.f_b_l, self.d2y_dx2_l, (1, 0), self.theta_outlet_l)
 
         self.coords['u']['x'] = linspace(0, 1, self.__N)
         self.coords['u']['y'] = sum([cf_u[i] * self.coords['u']['x'] ** (i + 0.5) for i in range(6)])
@@ -385,6 +411,7 @@ class Airfoil:
         self.coords['l']['y'] = sum([cf_l[i] * self.coords['l']['x'] ** (i + 0.5) for i in range(6)])
         self.coords['l']['x'], self.coords['l']['y'] = self.coords['l']['x'][::-1], self.coords['l']['y'][::-1]
 
+        self.r_outlet_b, self.__O_outlet = 0, (1, 0)
         self.find_circles()
 
     def Bezier(self):
@@ -469,16 +496,14 @@ class Airfoil:
         CC1u, CC1d = y1u - AA1u * x1u, y1d - AA1d * x1d
 
         # центры входной и выходной окружностей
-        self.__O_inlet = COOR(AA0u, CC0u, AA0d, CC0d)
-        self.__O_outlet = COOR(AA1u, CC1u, AA1d, CC1d)
+        self.__O_inlet, self.__O_outlet = COOR(AA0u, CC0u, AA0d, CC0d), COOR(AA1u, CC1u, AA1d, CC1d)
 
-        self.r_inlet_b = abs(self.__O_inlet[0] - x0)
-        self.r_outlet_b = abs(self.__O_outlet[0] - x1)
+        self.r_inlet_b, self.r_outlet_b = abs(self.__O_inlet[0] - x0), abs(self.__O_outlet[0] - x1)
 
         return {'inlet': {'O': self.__O_inlet, 'r': self.r_inlet_b},
                 'outlet': {'O': self.__O_outlet, 'r': self.r_outlet_b}}
 
-    def show(self, figsize=(14, 5.25), savefig=False):
+    def show(self, figsize=(12, 5.25), savefig=False):
         """Построение профиля"""
         fg = plt.figure(figsize=figsize)
         gs = fg.add_gridspec(1, 4)  # строки, столбцы
@@ -557,7 +582,7 @@ class Airfoil:
                                                 epsrel=epsrel)[0]
         self.__props['xc_b'], self.__props['c_b'] = -1.0, 0
         self.__props['xf_b'], self.__props['f_b'] = -1.0, 0
-        for x in linspace(0, 1, ceil(1 / epsrel)):
+        for x in linspace(0, 1, int(ceil(1 / epsrel))):
             if Yup(x) - Ydown(x) > self.__props['c_b']:
                 self.__props['xc_b'], self.__props['c_b'] = x, Yup(x) - Ydown(x)
             if abs((Yup(x) + Ydown(x)) / 2) > abs(self.__props['f_b']):
@@ -839,10 +864,9 @@ if __name__ == '__main__':
         airfoils.append(Airfoil('PARSEC', 30))
 
         airfoils[-1].r_inlet_b = 0.01
-        airfoils[-1].c_b_u, airfoils[-1].c_b_l = (0.35, 0.05), (0.55, -0.05)
-        airfoils[-1].c_b_u = (0.35, 0.05)
-        airfoils[-1].d2y_dx2_u, airfoils[-1].d2y_dx2_l = -0.8, -0.5
-        airfoils[-1].thetta_outlet_u, airfoils[-1].thetta_outlet_l = radians(-6), radians(3)
+        airfoils[-1].f_b_u, airfoils[-1].f_b_l = (0.35, 0.055), (0.45, -0.006)
+        airfoils[-1].d2y_dx2_u, airfoils[-1].d2y_dx2_l = -0.35, -0.2
+        airfoils[-1].theta_outlet_u, airfoils[-1].theta_outlet_l = radians(-6), radians(0.05)
 
     if 0:
         airfoils.append(Airfoil('BEZIER', 30))
