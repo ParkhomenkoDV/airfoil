@@ -724,15 +724,16 @@ class Grate:
         xgmax = max(self.coords['u']['x'] + self.coords['l']['x']) - self.__airfoil.r_outlet_b
         ygmax = max(self.coords['u']['y']) + self.__t_b / 2
 
-        self.d, self.xd, self.yd = [], [], []
-        xu, yu = [], []
-        xd, yd = [], []
-        Lu, Ld = [], []
+        self.d, self.xd, self.yd = list(), list(), list()
+        xu, yu = list(), list()
+        xd, yd = list(), list()
+        Lu, Ld = list(), list()
 
-        def dfdx(x0, F, dx=1e-6):
+        def dfdx(x0, F, dx: float = 1e-6):
             return (F(x0 + dx / 2) - F(x0 - dx / 2)) / dx
 
         def ABC(x0, F):
+            """Коэффициенты A, B, C прямой"""
             df_dx = dfdx(x0, F)
             return -1 / df_dx, -1, -(-1 / df_dx) * x0 - (-1) * F(x0)
 
@@ -740,20 +741,18 @@ class Grate:
             return sqrt(1 / (tg ** 2 + 1))
 
         x = xgmin
-        while True:
-            if x >= xgmax: break
+        while x < xgmax:
             xd.append(x)
             yd.append(Fd(x))
             Ld.append(ABC(x, Fd))
             x += epsrel * cosfromtan(dfdx(x, Fd))
 
         x = xgmin
-        while True:
-            if x >= xgmax: break
+        while x < xgmax:
             xu.append(x)
             yu.append(Fu(x))
             Lu.append(ABC(x, Fu))
-            x += epsrel ** 2 * cosfromtan(dfdx(x, Fd))
+            x += (epsrel ** 2) * cosfromtan(dfdx(x, Fd))  # более мелкий шаг для лучшей дискретизации
 
         j0 = 0  # начальный индекс искомого перпендикуляра
         for i in tqdm(range(len(Ld)), desc='Channel calculation'):
@@ -769,13 +768,12 @@ class Grate:
 
                 xdt, ydt = COOR(Ld[i][0], Ld[i][2], Lu[j][0], Lu[j][2])  # точка пересечения перпендикуляров
 
-                dd = dist((xdt, ydt), (xd[i], yd[i])) * 2
-                du = dist((xdt, ydt), (xu[j], yu[j])) * 2
+                du, dd = dist((xdt, ydt), (xu[j], yu[j])) * 2, dist((xdt, ydt), (xd[i], yd[i])) * 2
 
                 abs_eps_rel = abs(eps('rel', dd, du))
                 if abs_eps_rel < epsilon and ygmin < ydt < ygmax and xgmin <= xdt <= xgmax:
                     epsilon = abs_eps_rel
-                    D = (dd + du) / 2
+                    D = 0.5 * (dd + du)
                     XDT, YDT = xdt, ydt
                     jt = j
 
