@@ -768,7 +768,7 @@ class Grate:
 
                 xdt, ydt = COOR(Ld[i][0], Ld[i][2], Lu[j][0], Lu[j][2])  # точка пересечения перпендикуляров
 
-                du, dd = dist((xdt, ydt), (xu[j], yu[j])) * 2, dist((xdt, ydt), (xd[i], yd[i])) * 2
+                du, dd = dist((xdt, ydt), (xu[j], yu[j])) * 2, dist((xdt, ydt), (xd[i], yd[i])) * 2  # диаметры
 
                 abs_eps_rel = abs(eps('rel', dd, du))
                 if abs_eps_rel < epsilon and ygmin < ydt < ygmax and xgmin <= xdt <= xgmax:
@@ -878,6 +878,11 @@ if __name__ == '__main__':
 
         airfoils[-1].u = ((0.0, 0.0), (0.05, 0.100), (0.35, 0.200), (1.0, 0.0))
         airfoils[-1].l = ((0.0, 0.0), (0.05, -0.10), (0.35, -0.05), (0.5, 0.0), (1.0, 0.0))
+
+    if 1:
+        airfoils.append(Airfoil('MANUAL', 30))
+
+
 
     for airfoil in airfoils:
         airfoil.solve()
