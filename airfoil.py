@@ -175,13 +175,13 @@ class Airfoil:
             assert isiter(self.u)
             assert all(map(isiter, self.u))
             assert all(len(el) == 2 for el in self.u)
-            assert all(type(el) in (int, float) for itr in self.u for el in itr)
+            assert all(isinstance(el, (int, float)) for itr in self.u for el in itr)
 
             assert hasattr(self, 'l')
             assert isiter(self.l)
             assert all(map(isiter, self.l))
             assert all(len(el) == 2 for el in self.l)
-            assert all(type(el) in (int, float) for itr in self.l for el in itr)
+            assert all(isinstance(el, (int, float)) for itr in self.l for el in itr)
 
         if self.method.upper() in ('MANUAL', 'ВРУЧНУЮ'):
             pass
@@ -422,10 +422,29 @@ class Airfoil:
         self.find_circles()
 
     def Bezier(self):
+        if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
+        if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
+
         self.coords['u']['x'], self.coords['u']['y'] = bernstein_curve(self.u, N=self.__N).T
         self.coords['l']['x'], self.coords['l']['y'] = bernstein_curve(self.l, N=self.__N).T
 
-        self.find_circles()
+        self.__O_inlet, self.r_inlet_b = (0, 0), 0
+        self.__O_outlet, self.r_outlet_b = (1, 0), 0
+
+    def MANUAL(self):
+        if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
+        if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
+
+        x = linspace(0, 1, self.__N)
+        self.coords['u']['x'], self.coords['u']['y'] = x, interpolate.interp1d([p[0] for p in self.u],
+                                                                               [p[1] for p in self.u],
+                                                                               kind=self.deg)(x)
+        self.coords['l']['x'], self.coords['l']['y'] = x, interpolate.interp1d([p[0] for p in self.l],
+                                                                               [p[1] for p in self.l],
+                                                                               kind=self.deg)(x)
+
+        self.__O_inlet, self.r_inlet_b = (0, 0), 0
+        self.__O_outlet, self.r_outlet_b = (1, 0), 0
 
     @timeit()
     def solve(self):
@@ -444,7 +463,7 @@ class Airfoil:
         elif self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
             self.Bezier()
         elif self.method.upper() in ('MANUAL', 'ВРУЧНУЮ'):
-            pass
+            self.MANUAL()
         else:
             print(Fore.RED + f'No such method {self.method}!' + Fore.RESET)
 
@@ -475,8 +494,8 @@ class Airfoil:
             return {'inlet': {'O': self.__O_inlet, 'r': self.r_inlet_b},
                     'outlet': {'O': self.__O_outlet, 'r': self.r_outlet_b}}
 
-        Fu = interpolate.interp1d(*self.coords['u'].values(), kind='quadratic', fill_value='extrapolate')
-        Fd = interpolate.interp1d(*self.coords['l'].values(), kind='quadratic', fill_value='extrapolate')
+        Fu = interpolate.interp1d(*self.coords['u'].values(), kind='cubic', fill_value='extrapolate')
+        Fd = interpolate.interp1d(*self.coords['l'].values(), kind='cubic', fill_value='extrapolate')
 
         dx = 0.000_1
 
@@ -503,9 +522,10 @@ class Airfoil:
         CC1u, CC1d = y1u - AA1u * x1u, y1d - AA1d * x1d
 
         # центры входной и выходной окружностей
-        self.__O_inlet, self.__O_outlet = COOR(AA0u, CC0u, AA0d, CC0d), COOR(AA1u, CC1u, AA1d, CC1d)
-
-        self.r_inlet_b, self.r_outlet_b = abs(self.__O_inlet[0] - x0), abs(self.__O_outlet[0] - x1)
+        if not hasattr(self, '_Airfoil__O_inlet'): self.__O_inlet = COOR(AA0u, CC0u, AA0d, CC0d)
+        if not hasattr(self, '_Airfoil__O_outlet'): self.__O_outlet = COOR(AA1u, CC1u, AA1d, CC1d)
+        if not hasattr(self, 'r_inlet_b'): self.r_inlet_b = abs(self.__O_inlet[0] - x0)
+        if not hasattr(self, 'r_outlet_b'): self.r_outlet_b = abs(self.__O_outlet[0] - x1)
 
         return {'inlet': {'O': self.__O_inlet, 'r': self.r_inlet_b},
                 'outlet': {'O': self.__O_outlet, 'r': self.r_outlet_b}}
@@ -568,11 +588,11 @@ class Airfoil:
 
     def to_dataframe(self, bears: str = 'pandas'):
         if bears.strip().lower() == 'pandas':
-            return pd.DataFrame({'xu': pd.Series(airfoil.coords['u']['x']), 'yu': pd.Series(airfoil.coords['u']['y']),
-                                 'xd': pd.Series(airfoil.coords['l']['x']), 'yd': pd.Series(airfoil.coords['l']['y'])})
+            return pd.DataFrame({'xu': pd.Series(self.coords['u']['x']), 'yu': pd.Series(self.coords['u']['y']),
+                                 'xd': pd.Series(self.coords['l']['x']), 'yd': pd.Series(self.coords['l']['y'])})
         if bears.strip().lower() == 'polars':
-            return pl.concat([pl.DataFrame({'xu': airfoil.coords['u']['x'], 'yu': airfoil.coords['u']['y']}),
-                              pl.DataFrame({'xl': airfoil.coords['l']['x'], 'yl': airfoil.coords['l']['y']})],
+            return pl.concat([pl.DataFrame({'xu': self.coords['u']['x'], 'yu': self.coords['u']['y']}),
+                              pl.DataFrame({'xl': self.coords['l']['x'], 'yl': self.coords['l']['y']})],
                              how='horizontal')
         print(Fore.RED + 'Unknown bears!' + Fore.RESET)
         print('Use "pandas" or "polars"!')
@@ -582,29 +602,29 @@ class Airfoil:
     def properties(self, epsrel: float = 1e-4) -> dict[str: float]:
         if self.__props: return self.__props
 
-        Yup = interpolate.interp1d(*self.coords['u'].values(), kind='cubic', fill_value='extrapolate')
-        Ydown = interpolate.interp1d(*self.coords['l'].values(), kind='cubic', fill_value='extrapolate')
+        Yu = interpolate.interp1d(*self.coords['u'].values(), kind='cubic', fill_value='extrapolate')
+        Yl = interpolate.interp1d(*self.coords['l'].values(), kind='cubic', fill_value='extrapolate')
 
-        self.__props['a_b'] = integrate.dblquad(lambda _, __: 1, 0, 1, lambda xu: Ydown(xu), lambda xd: Yup(xd),
+        self.__props['a_b'] = integrate.dblquad(lambda _, __: 1, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
                                                 epsrel=epsrel)[0]
         self.__props['xc_b'], self.__props['c_b'] = -1.0, 0
         self.__props['xf_b'], self.__props['f_b'] = -1.0, 0
         for x in linspace(0, 1, int(ceil(1 / epsrel))):
-            if Yup(x) - Ydown(x) > self.__props['c_b']:
-                self.__props['xc_b'], self.__props['c_b'] = x, Yup(x) - Ydown(x)
-            if abs((Yup(x) + Ydown(x)) / 2) > abs(self.__props['f_b']):
-                self.__props['xf_b'], self.__props['f_b'] = x, (Yup(x) + Ydown(x)) / 2
-        self.__props['Sx'] = integrate.dblquad(lambda y, _: y, 0, 1, lambda xu: Ydown(xu), lambda xd: Yup(xd),
+            if Yu(x) - Yl(x) > self.__props['c_b']:
+                self.__props['xc_b'], self.__props['c_b'] = x, Yu(x) - Yl(x)
+            if abs((Yu(x) + Yl(x)) / 2) > abs(self.__props['f_b']):
+                self.__props['xf_b'], self.__props['f_b'] = x, (Yu(x) + Yl(x)) / 2
+        self.__props['Sx'] = integrate.dblquad(lambda y, _: y, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
                                                epsrel=epsrel)[0]
-        self.__props['Sy'] = integrate.dblquad(lambda _, x: x, 0, 1, lambda xu: Ydown(xu), lambda xd: Yup(xd),
+        self.__props['Sy'] = integrate.dblquad(lambda _, x: x, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
                                                epsrel=epsrel)[0]
         self.__props['x0'] = self.__props['Sy'] / self.__props['a_b']
         self.__props['y0'] = self.__props['Sx'] / self.__props['a_b']
-        self.__props['Jx'] = integrate.dblquad(lambda y, _: y ** 2, 0, 1, lambda xu: Ydown(xu), lambda xd: Yup(xd),
+        self.__props['Jx'] = integrate.dblquad(lambda y, _: y ** 2, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
                                                epsrel=epsrel)[0]
-        self.__props['Jy'] = integrate.dblquad(lambda _, x: x ** 2, 0, 1, lambda xu: Ydown(xu), lambda xd: Yup(xd),
+        self.__props['Jy'] = integrate.dblquad(lambda _, x: x ** 2, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
                                                epsrel=epsrel)[0]
-        self.__props['Jxy'] = integrate.dblquad(lambda y, x: x * y, 0, 1, lambda xu: Ydown(xu), lambda xd: Yup(xd),
+        self.__props['Jxy'] = integrate.dblquad(lambda y, x: x * y, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
                                                 epsrel=epsrel)[0]
         self.__props['Jxc'] = self.__props['Jx'] - self.__props['a_b'] * self.__props['y0'] ** 2
         self.__props['Jyc'] = self.__props['Jy'] - self.__props['a_b'] * self.__props['x0'] ** 2
@@ -614,8 +634,8 @@ class Airfoil:
             sqrt((0 - self.__props['x0']) ** 2 + (0 - self.__props['y0']) ** 2),
             sqrt((1 - self.__props['x0']) ** 2 + (0 - self.__props['y0']) ** 2))
         self.__props['alpha'] = 0.5 * arctan(-2 * self.__props['Jxcyc'] / (self.__props['Jxc'] - self.__props['Jyc']))
-        self.__props['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(Yup, x) ** 2), 0, 1, epsrel=epsrel)[0]
-        self.__props['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(Ydown, x) ** 2), 0, 1, epsrel=epsrel)[0]
+        self.__props['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(Yu, x) ** 2), 0, 1, epsrel=epsrel)[0]
+        self.__props['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(Yl, x) ** 2), 0, 1, epsrel=epsrel)[0]
 
         return self.__props
 
@@ -903,17 +923,19 @@ class Grate:
         plt.plot([0, ceil(max(self.r))], [0, 0], ls='-', color=(0, 0, 0), linewidth=1.5)
         plt.plot(list((self.r[i] + self.r[i + 1]) / 2 for i in range(len(self.r) - 1)),
                  list((self.d[i + 1] - self.d[i]) / (self.r[i + 1] - self.r[i]) for i in range(len(self.r) - 1)),
-                 ls='-', color=(1, 0, 0))
+                 ls='-', color='red', label='d2f/dx2')
+        plt.legend(fontsize=12)
         plt.tight_layout()
         plt.show()
 
 
-if __name__ == '__main__':
-    import cProfile
+def main() -> None:
+    """Тестирование"""
+    # print(Disk.version())
 
     Airfoil.rnd = 4
 
-    airfoils = list()
+    airfoils, grates = list(), list()
 
     if 1:
         airfoils.append(Airfoil('BMSTU', 30))
@@ -924,6 +946,8 @@ if __name__ == '__main__':
         airfoils[-1].g_inlet, airfoils[-1].g_outlet = radians(20), radians(10)
         airfoils[-1].e = radians(110)
 
+        grates.append(Grate(airfoils[-1], radians(46.23), 1 / 1.698, N=60))
+
     if 1:
         airfoils.append(Airfoil('NACA', 40))
 
@@ -931,10 +955,14 @@ if __name__ == '__main__':
         airfoils[-1].f_b = 0.05
         airfoils[-1].xf_b = 0.3
 
+        grates.append(Grate(airfoils[-1], radians(46.23), 1 / 1.698, N=50))
+
     if 1:
         airfoils.append(Airfoil('MYNK', 20))
 
         airfoils[-1].h = 0.1
+
+        grates.append(Grate(airfoils[-1], radians(46.23), 1 / 1.698, N=20))
 
     if 1:
         airfoils.append(Airfoil('PARSEC', 30))
@@ -944,16 +972,26 @@ if __name__ == '__main__':
         airfoils[-1].d2y_dx2_u, airfoils[-1].d2y_dx2_l = -0.35, -0.2
         airfoils[-1].theta_outlet_u, airfoils[-1].theta_outlet_l = radians(-6), radians(0.05)
 
+        grates.append(Grate(airfoils[-1], radians(46.23), 1 / 1.698, N=30))
+
     if 1:
         airfoils.append(Airfoil('BEZIER', 30))
 
         airfoils[-1].u = ((0.0, 0.0), (0.05, 0.100), (0.35, 0.200), (1.0, 0.0))
         airfoils[-1].l = ((0.0, 0.0), (0.05, -0.10), (0.35, -0.05), (0.5, 0.0), (1.0, 0.0))
 
+        grates.append(Grate(airfoils[-1], radians(46.23), 1 / 1.698, N=40))
+
     if 1:
         airfoils.append(Airfoil('MANUAL', 30))
 
-    for airfoil in airfoils:
+        airfoils[-1].u = ((0.0, 0.0), (0.10, 0.100), (0.35, 0.150), (0.5, 0.15), (1.0, 0.0))
+        airfoils[-1].l = ((0.0, 0.0), (0.05, -0.05), (0.35, -0.05), (0.5, 0.0), (1.0, 0.0))
+        airfoils[-1].deg = 3
+
+        grates.append(Grate(airfoils[-1], radians(46.23), 1 / 1.698, N=40))
+
+    for airfoil, grate in zip(airfoils, grates):
         airfoil.solve()
         airfoil.show()
 
@@ -965,8 +1003,6 @@ if __name__ == '__main__':
 
         airfoil.export()
 
-        grate = Grate(airfoil, radians(46.23), 1 / 1.698, N=20)  # относ. шаг профиля, угол установки профиля
-
         grate.solve()
         grate.show()
 
@@ -975,3 +1011,9 @@ if __name__ == '__main__':
 
         # print(Fore.MAGENTA + 'grate properties:' + Fore.RESET)
         # for k, v in grate.properties.items(): print(f'{k}: {v}')
+
+
+if __name__ == '__main__':
+    import cProfile
+
+    cProfile.run('main()', sort='cumtime')
