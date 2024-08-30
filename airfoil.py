@@ -1,10 +1,12 @@
 import sys
+import warnings
 from tqdm import tqdm
 from colorama import Fore
 
 import numpy as np
 from numpy import linspace, arange, array, nan, inf, pi, cos, sin, tan, arctan, sqrt, floor, ceil, radians, degrees
 from scipy import interpolate, integrate
+from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
 import pandas as pd
 import polars as pl
@@ -13,10 +15,8 @@ from curves import bernstein_curve
 
 sys.path.append('D:/Programming/Python/scripts')
 
-from tools import export2, isnum, COOR, LINE, Axis, angle, rounding, eps, dist, dist2line, isiter
+from tools import export2, isnum, COOR, Axis, angle, rounding, eps, dist, dist2line, isiter, derivative, line_coefs
 from decorators import timeit
-
-import cProfile
 
 
 class Airfoil:
@@ -28,9 +28,9 @@ class Airfoil:
     def __init__(self, method: str, N: int = __N):
         self.__method = method  # метод построения аэродинамического профиля
         self.__N = N  # количество точек дискретизации
-        self.coords = {'u': {'x': list(), 'y': list()},
-                       'l': {'x': list(), 'y': list()}}
-        self.__props = dict()
+        self.coords = {'u': {'x': list(), 'y': list()},  # координаты спинки
+                       'l': {'x': list(), 'y': list()}}  # координаты корыта
+        self.__props = dict()  # характеристики профиля
 
     def __str__(self) -> str:
         return self.__method
@@ -489,10 +489,10 @@ class Airfoil:
         x0d, x1d = dx, 1 - dx
         y0d, y1d = Fd(x0d), Fd(x1d)
 
-        A0u, B0u, C0u = LINE((x0, y0), (x0u, y0u)).values()
-        A0d, B0d, C0d = LINE((x0, y0), (x0d, y0d)).values()
-        A1u, B1u, C1u = LINE((x1, y1), (x1u, y1u)).values()
-        A1d, B1d, C1d = LINE((x1, y1), (x1d, y1d)).values()
+        A0u, B0u, C0u = line_coefs(p1=(x0, y0), p2=(x0u, y0u))
+        A0d, B0d, C0d = line_coefs(p1=(x0, y0), p2=(x0d, y0d))
+        A1u, B1u, C1u = line_coefs(p1=(x1, y1), p2=(x1u, y1u))
+        A1d, B1d, C1d = line_coefs(p1=(x1, y1), p2=(x1d, y1d))
 
         # A для перпендикуляров
         AA0u, AA0d = -1 / A0u, -1 / A0d
@@ -582,8 +582,8 @@ class Airfoil:
     def properties(self, epsrel: float = 1e-4) -> dict[str: float]:
         if self.__props: return self.__props
 
-        Yup = interpolate.interp1d(*self.coords['u'].values(), kind='quadratic', fill_value='extrapolate')
-        Ydown = interpolate.interp1d(*self.coords['l'].values(), kind='quadratic', fill_value='extrapolate')
+        Yup = interpolate.interp1d(*self.coords['u'].values(), kind='cubic', fill_value='extrapolate')
+        Ydown = interpolate.interp1d(*self.coords['l'].values(), kind='cubic', fill_value='extrapolate')
 
         self.__props['a_b'] = integrate.dblquad(lambda _, __: 1, 0, 1, lambda xu: Ydown(xu), lambda xd: Yup(xd),
                                                 epsrel=epsrel)[0]
@@ -614,6 +614,8 @@ class Airfoil:
             sqrt((0 - self.__props['x0']) ** 2 + (0 - self.__props['y0']) ** 2),
             sqrt((1 - self.__props['x0']) ** 2 + (0 - self.__props['y0']) ** 2))
         self.__props['alpha'] = 0.5 * arctan(-2 * self.__props['Jxcyc'] / (self.__props['Jxc'] - self.__props['Jyc']))
+        self.__props['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(Yup, x) ** 2), 0, 1, epsrel=epsrel)[0]
+        self.__props['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(Ydown, x) ** 2), 0, 1, epsrel=epsrel)[0]
 
         return self.__props
 
@@ -683,7 +685,7 @@ class Grate:
 
     @timeit()
     def solve(self):
-        self.coords['u'], self.coords['l'] = {'x': [], 'y': []}, {'x': [], 'y': []}
+        self.coords['u'], self.coords['l'] = {'x': list(), 'y': list()}, {'x': list(), 'y': list()}
 
         dct = self.__airfoil.transform(self.__airfoil.properties['x0'], self.__airfoil.properties['y0'],
                                        self.gamma, scale=1, inplace=False)
@@ -737,8 +739,7 @@ class Grate:
             df_dx = dfdx(x0, F)
             return -1 / df_dx, -1, -(-1 / df_dx) * x0 - (-1) * F(x0)
 
-        def cosfromtan(tg):
-            return sqrt(1 / (tg ** 2 + 1))
+        cosfromtan = lambda tg: sqrt(1 / (tg ** 2 + 1))
 
         x = xgmin
         while x < xgmax:
@@ -795,6 +796,74 @@ class Grate:
 
         return self.__props
 
+    @property
+    @timeit()
+    def properties(self, epsrel=0.01):
+        """Дифузорность/конфузорность решетки"""
+        if self.__props: return self.__props
+
+        # kind='cubic' необходим для гладкости производной
+        Fd = interpolate.interp1d(self.coords['l']['x'], [y + self.__t_b / 2 for y in self.coords['l']['y']],
+                                  kind='cubic', fill_value='extrapolate')
+        Fu = interpolate.interp1d(self.coords['u']['x'], [y - self.__t_b / 2 for y in self.coords['u']['y']],
+                                  kind='cubic', fill_value='extrapolate')
+
+        xgmin = min(self.coords['u']['x'] + self.coords['l']['x']) + self.__airfoil.r_inlet_b
+        ygmin = min(self.coords['l']['y']) - self.__t_b / 2
+        xgmax = max(self.coords['u']['x'] + self.coords['l']['x']) - self.__airfoil.r_outlet_b
+        ygmax = max(self.coords['u']['y']) + self.__t_b / 2
+
+        cosfromtan = lambda tg: sqrt(1 / (tg ** 2 + 1))
+
+        # длина кривой
+        l = integrate.quad(lambda x: sqrt(1 + derivative(Fd, x) ** 2), xgmin, xgmax, limit=self.__N ** 2)[0]
+        step = l / self.__N
+
+        x = [xgmin]
+        while True:
+            X = x[-1] + step * cosfromtan(derivative(Fd, x[-1]))
+            if X > xgmax: break
+            x.append(X)
+        x = np.array(x)
+
+        Au, _, Cu = line_coefs(func=Fd, x0=x)
+
+        def equations(vars, *args):
+            """СНЛАУ"""
+            x0, y0, r0, xl = vars
+            xu, yu, Au, Cu = args
+
+            Al, _, Cl = line_coefs(func=Fu, x0=xl)
+
+            return [abs(Au * x0 + (-1) * y0 + Cu) / np.sqrt(Au ** 2 + 1) - r0,
+                    ((xu - x0) ** 2 + (yu - y0) ** 2) - r0 ** 2,
+                    abs(Al * x0 + (-1) * y0 + Cl) / np.sqrt(Al ** 2 + 1) - r0,
+                    ((xl - x0) ** 2 + (Fu(xl) - y0) ** 2) - r0 ** 2]
+
+        self.d, self.xd, self.yd = list(), list(), list()
+
+        warnings.filterwarnings('error')
+        for xu, yu, a_u, c_u in zip(x, Fd(x), Au, Cu):
+            try:
+                res = fsolve(equations, [xu, yu, self.__t_b / 2, xu], args=(xu, yu, a_u, c_u))
+            except:
+                continue
+
+            if xgmin <= res[0] <= xgmax and xgmin <= res[3] <= xgmax and res[2] <= self.__t_b / 2:
+                print(res, [xu, yu, a_u, c_u])
+                self.d.append(res[2] * 2)
+                self.xd.append(res[0])
+                self.yd.append(res[1])
+        warnings.filterwarnings('default')
+
+        self.r = np.zeros(len(self.d))
+        for i in range(1, len(self.d)):
+            self.r[i] = self.r[i - 1] + dist((self.xd[i - 1], self.yd[i - 1]), (self.xd[i], self.yd[i]))
+
+        self.__props = {tuple((self.xd[i], self.yd[i])): self.d[i] for i in range(len(self.d))}
+
+        return self.__props
+
     def show(self):
         if not self.__props: self.properties
         fg = plt.figure(figsize=(12, 6))  # размер в дюймах
@@ -807,22 +876,22 @@ class Grate:
         plt.xlim(floor(min(self.coords['u']['x'] + self.coords['l']['x'])),
                  ceil(max(self.coords['u']['x'] + self.coords['l']['x'])))
         plt.ylim(-1, 1)
+        plt.plot([min(self.coords['u']['x'] + self.coords['l']['x'])] * 2, [-1, 1],
+                 [max(self.coords['u']['x'] + self.coords['l']['x'])] * 2, [-1, 1],
+                 ls='-', color='black')  # границы решетки
         for i in range(len(self.d)):
             plt.plot(list(self.d[i] / 2 * cos(alpha) + self.xd[i] for alpha in linspace(0, 2 * pi, 360)),
                      list(self.d[i] / 2 * sin(alpha) + self.yd[i] for alpha in linspace(0, 2 * pi, 360)),
                      ls='-', color=(0, 1, 0))
-        plt.plot(self.xd, self.yd, ls='--', color=(1, 0, 1))
-        plt.plot([min(self.coords['u']['x'] + self.coords['l']['x'])] * 2, [-1, 1],
-                 [max(self.coords['u']['x'] + self.coords['l']['x'])] * 2, [-1, 1],
-                 ls='-', color=(0, 0, 0))  # границы решетки
+        plt.plot(self.xd, self.yd, ls='--', color='orange')
         plt.plot(self.coords['u']['x'], list(y - self.__t_b / 2 for y in self.coords['u']['y']),
-                 ls='-', color=(0, 0, 0))
+                 ls='-', color='black')
         plt.plot(self.coords['l']['x'], list(y - self.__t_b / 2 for y in self.coords['l']['y']),
-                 ls='-', color=(0, 0, 0))
+                 ls='-', color='black')
         plt.plot(self.coords['u']['x'], list(y + self.__t_b / 2 for y in self.coords['u']['y']),
-                 ls='-', color=(0, 0, 0))
+                 ls='-', color='black')
         plt.plot(self.coords['l']['x'], list(y + self.__t_b / 2 for y in self.coords['l']['y']),
-                 ls='-', color=(0, 0, 0))
+                 ls='-', color='black')
 
         fg.add_subplot(gs[0, 1])  # позиция графика
         plt.title('Channel')
@@ -840,6 +909,8 @@ class Grate:
 
 
 if __name__ == '__main__':
+    import cProfile
+
     Airfoil.rnd = 4
 
     airfoils = list()
@@ -881,8 +952,6 @@ if __name__ == '__main__':
 
     if 1:
         airfoils.append(Airfoil('MANUAL', 30))
-
-
 
     for airfoil in airfoils:
         airfoil.solve()
