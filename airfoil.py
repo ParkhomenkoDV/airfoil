@@ -16,7 +16,7 @@ from curves import bernstein_curve
 sys.path.append('D:/Programming/Python/scripts')
 
 from tools import export2, isnum, COOR, Axis, angle, rounding, eps, dist, dist2line, isiter, derivative, line_coefs
-from decorators import timeit
+from decorators import timeit, warns
 
 
 class Airfoil:
@@ -80,6 +80,15 @@ class Airfoil:
     def validate(self) -> bool:
         """Проверка верности ввода атрибутов профиля по данному методу"""
 
+        def validate_points(points) -> bool:
+            """Проверка двумерного массива точек"""
+            assert isiter(points)  # проверка на итератор
+            assert all(map(isiter, points))  # проверка элементов итератора на итератор
+            assert all(len(el) == 2 for el in points)  # проверка длин элементов итератора
+            assert all(isinstance(el, (int, float)) for itr in points for el in itr)  # проверка типов элементов
+
+            return True
+
         if self.method.upper() in ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'):
             # относ. координата пересечения входного и выходного лучей
             assert hasattr(self, 'xg_b')
@@ -115,7 +124,7 @@ class Airfoil:
             assert hasattr(self, 'e')
             assert isinstance(self.e, (int, float, np.number))
 
-        if self.method.upper() in ('NACA', 'N.A.C.A.'):
+        elif self.method.upper() in ('NACA', 'N.A.C.A.'):
             # относ. максимальная толщина профиля
             assert hasattr(self, 'c_b')
             assert type(self.c_b) in (int, float)
@@ -131,12 +140,12 @@ class Airfoil:
             assert type(self.f_b) in (int, float)
             assert 0 <= self.f_b <= 1
 
-        if self.method.upper() in ('MYNK', 'МУНК'):
+        elif self.method.upper() in ('MYNK', 'МУНК'):
             assert hasattr(self, 'h')
             assert type(self.h) in (int, float)
             assert 0 <= self.h <= 1
 
-        if self.method.upper() in ('PARSEC',):
+        elif self.method.upper() in ('PARSEC',):
             # относ. радиус входной кромки
             assert hasattr(self, 'r_inlet_b')
             assert type(self.r_inlet_b) in (int, float)
@@ -170,21 +179,15 @@ class Airfoil:
             assert hasattr(self, "theta_outlet_l")
             assert isinstance(self.theta_outlet_l, float)
 
-        if self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
-            assert hasattr(self, 'u')
-            assert isiter(self.u)
-            assert all(map(isiter, self.u))
-            assert all(len(el) == 2 for el in self.u)
-            assert all(isinstance(el, (int, float)) for itr in self.u for el in itr)
+        elif self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
+            assert hasattr(self, 'u') and hasattr(self, 'l')
+            validate_points(self.u)
+            validate_points(self.l)
 
-            assert hasattr(self, 'l')
-            assert isiter(self.l)
-            assert all(map(isiter, self.l))
-            assert all(len(el) == 2 for el in self.l)
-            assert all(isinstance(el, (int, float)) for itr in self.l for el in itr)
-
-        if self.method.upper() in ('MANUAL', 'ВРУЧНУЮ'):
-            pass
+        elif self.method.upper() in ('MANUAL', 'ВРУЧНУЮ'):
+            assert hasattr(self, 'u') and hasattr(self, 'l')
+            validate_points(self.u)
+            validate_points(self.l)
 
         return True
 
@@ -818,15 +821,15 @@ class Grate:
 
     @property
     @timeit()
-    def properties(self, epsrel=0.01):
+    def properties(self):
         """Дифузорность/конфузорность решетки"""
         if self.__props: return self.__props
 
         # kind='cubic' необходим для гладкости производной
-        Fd = interpolate.interp1d(self.coords['l']['x'], [y + self.__t_b / 2 for y in self.coords['l']['y']],
-                                  kind='cubic', fill_value='extrapolate')
-        Fu = interpolate.interp1d(self.coords['u']['x'], [y - self.__t_b / 2 for y in self.coords['u']['y']],
-                                  kind='cubic', fill_value='extrapolate')
+        Fd = interpolate.interp1d(self.coords['l']['x'], [y + self.__t_b / 2 for y in self.coords['l']['y']], kind=3,
+                                  fill_value='extrapolate')
+        Fu = interpolate.interp1d(self.coords['u']['x'], [y - self.__t_b / 2 for y in self.coords['u']['y']], kind=3,
+                                  fill_value='extrapolate')
 
         xgmin = min(self.coords['u']['x'] + self.coords['l']['x']) + self.__airfoil.r_inlet_b
         ygmin = min(self.coords['l']['y']) - self.__t_b / 2
@@ -866,11 +869,10 @@ class Grate:
         for xu, yu, a_u, c_u in zip(x, Fd(x), Au, Cu):
             try:
                 res = fsolve(equations, [xu, yu, self.__t_b / 2, xu], args=(xu, yu, a_u, c_u))
-            except:
+            except Exception:
                 continue
 
             if xgmin <= res[0] <= xgmax and xgmin <= res[3] <= xgmax and res[2] <= self.__t_b / 2:
-                print(res, [xu, yu, a_u, c_u])
                 self.d.append(res[2] * 2)
                 self.xd.append(res[0])
                 self.yd.append(res[1])
@@ -902,16 +904,18 @@ class Grate:
         for i in range(len(self.d)):
             plt.plot(list(self.d[i] / 2 * cos(alpha) + self.xd[i] for alpha in linspace(0, 2 * pi, 360)),
                      list(self.d[i] / 2 * sin(alpha) + self.yd[i] for alpha in linspace(0, 2 * pi, 360)),
-                     ls='-', color=(0, 1, 0))
-        plt.plot(self.xd, self.yd, ls='--', color='orange')
+                     ls='solid', color='green')
+        plt.plot(self.xd, self.yd, ls='dashdot', color='orange',
+                 label=f'gamma = {self.__gamma:.4f} [rad] = {degrees(self.__gamma):.4f} [deg]')
         plt.plot(self.coords['u']['x'], list(y - self.__t_b / 2 for y in self.coords['u']['y']),
-                 ls='-', color='black')
+                 ls='-', color='black', label=f't/b = {self.__t_b:.4f}')
         plt.plot(self.coords['l']['x'], list(y - self.__t_b / 2 for y in self.coords['l']['y']),
                  ls='-', color='black')
         plt.plot(self.coords['u']['x'], list(y + self.__t_b / 2 for y in self.coords['u']['y']),
                  ls='-', color='black')
         plt.plot(self.coords['l']['x'], list(y + self.__t_b / 2 for y in self.coords['l']['y']),
                  ls='-', color='black')
+        plt.legend(fontsize=12)
 
         fg.add_subplot(gs[0, 1])  # позиция графика
         plt.title('Channel')
@@ -919,7 +923,7 @@ class Grate:
         plt.axis('square')
         plt.xlim([0, ceil(max(self.r))])
         plt.ylim([0, ceil(self.__t_b)])
-        plt.plot(self.r, self.d, ls='-', color=(0, 1, 0))
+        plt.plot(self.r, self.d, ls='-', color='green', label='channel')
         plt.plot([0, ceil(max(self.r))], [0, 0], ls='-', color=(0, 0, 0), linewidth=1.5)
         plt.plot(list((self.r[i] + self.r[i + 1]) / 2 for i in range(len(self.r) - 1)),
                  list((self.d[i + 1] - self.d[i]) / (self.r[i + 1] - self.r[i]) for i in range(len(self.r) - 1)),
@@ -929,7 +933,7 @@ class Grate:
         plt.show()
 
 
-def main() -> None:
+def test() -> None:
     """Тестирование"""
     # print(Disk.version())
 
@@ -1009,11 +1013,11 @@ def main() -> None:
         # print(grate.to_dataframe())
         # print(grate.to_dataframe(bears='polars'))
 
-        # print(Fore.MAGENTA + 'grate properties:' + Fore.RESET)
-        # for k, v in grate.properties.items(): print(f'{k}: {v}')
+        print(Fore.MAGENTA + 'grate properties:' + Fore.RESET)
+        for k, v in grate.properties.items(): print(f'{array(k)}: {v}')
 
 
 if __name__ == '__main__':
     import cProfile
 
-    cProfile.run('main()', sort='cumtime')
+    cProfile.run('test()', sort='cumtime')
