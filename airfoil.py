@@ -589,10 +589,15 @@ class Airfoil:
 
     def to_array(self, duplicates: bool = True):
         """Перевод координат в массив обхода против часовой стрелки считая с выходной кромки"""
-        return array((
-            self.coords['u']['x'][::-1] + self.coords['l']['x'] if duplicates else self.coords['l']['x'][1::],
-            self.coords['u']['y'][::-1] + self.coords['l']['y'] if duplicates else self.coords['l']['y'][1::]
-        ), dtype='float64').T
+        assert isinstance(duplicates, bool)
+        if duplicates:
+            return array((self.coords['u']['x'][::-1] + self.coords['l']['x'],
+                          self.coords['u']['y'][::-1] + self.coords['l']['y']),
+                         dtype='float64').T
+        else:
+            return array((self.coords['u']['x'][::-1] + self.coords['l']['x'][1::],
+                          self.coords['u']['y'][::-1] + self.coords['l']['y'][1::]),
+                         dtype='float64').T
 
     def to_dataframe(self, bears: str = 'pandas'):
         if bears.strip().lower() == 'pandas':
