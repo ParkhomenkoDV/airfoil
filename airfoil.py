@@ -317,9 +317,9 @@ class Airfoil:
 
         gradYf = 2 * self.f_b
 
-        a = array([0.2969, -0.126, -0.3516, 0.2843, -0.1036 if closed else -0.1015])
+        a = array((0.2969, -0.126, -0.3516, 0.2843, -0.1036 if closed else -0.1015), dtype='float64')
 
-        yc = self.c_b / 0.2 * np.dot(a, np.column_stack((np.sqrt(x), x, x ** 2, x ** 3, x ** 4)).T)
+        yc = self.c_b / 0.2 * np.dot(a, np.column_stack((sqrt(x), x, x ** 2, x ** 3, x ** 4)).T)
 
         tetta = atan(gradYf)
 
@@ -378,28 +378,25 @@ class Airfoil:
 
         coef = zeros(6)
 
-        # 1st coefficient depends on surface (pressure or suction)
+        # 1-ый коэффициент зависит от кривой поверхности спинки или корыта
         coef[0] = -sqrt(2 * radius_inlet) if surface == 'l' else sqrt(2 * radius_inlet)
 
-        # Form system of equations
-        A = array([
-            [x_outlet ** (i + 0.5) for i in range(1, 6, 1)],
-            [x_c_b ** (i + 0.5) for i in range(1, 6, 1)],
-            [(i + 0.5) * x_outlet ** (i - 0.5) for i in range(1, 6, 1)],
-            [(i + 0.5) * x_c_b ** (i - 0.5) for i in range(1, 6, 1)],
-            [(i ** 2 - 0.25) * x_c_b ** (i - 1.5) for i in range(1, 6, 1)],
-        ])
+        i = arange(1, 6)
 
-        B = array([
-            [y_outlet - coef[0] * sqrt(x_outlet)],
-            [y_c_b - coef[0] * sqrt(x_c_b)],
-            [tan(thetta_outlet_surface) - 0.5 * coef[0] * (1 / sqrt(x_outlet))],
-            [-0.5 * coef[0] * (1 / sqrt(x_c_b))],
-            [d2y_dx2_surface + 0.25 * coef[0] * x_c_b ** (-1.5)]
-        ])
+        # матрицы коэффициентов системы уравнений
+        A = array([x_outlet ** (i + 0.5),
+                   x_c_b ** (i + 0.5),
+                   (i + 0.5) * x_outlet ** (i - 0.5),
+                   (i + 0.5) * x_c_b ** (i - 0.5),
+                   (i ** 2 - 0.25) * x_c_b ** (i - 1.5)])
+        B = array([[y_outlet - coef[0] * sqrt(x_outlet)],
+                   [y_c_b - coef[0] * sqrt(x_c_b)],
+                   [tan(thetta_outlet_surface) - 0.5 * coef[0] * (1 / sqrt(x_outlet))],
+                   [-0.5 * coef[0] * (1 / sqrt(x_c_b))],
+                   [d2y_dx2_surface + 0.25 * coef[0] * x_c_b ** (-1.5)]])
 
-        X = np.linalg.solve(A, B)  # Solve system of linear equations
-        coef[1:6] = X[0:5, 0]  # Gather all coefficients
+        X = np.linalg.solve(A, B)  # решение СЛАУ
+        coef[1:6] = X[0:5, 0]
 
         return coef
 
@@ -421,8 +418,8 @@ class Airfoil:
         self.coords['l']['y'] = sum([cf_l[i] * self.coords['l']['x'] ** (i + 0.5) for i in range(6)])
         self.coords['l']['x'], self.coords['l']['y'] = self.coords['l']['x'][::-1], self.coords['l']['y'][::-1]
 
-        self.r_outlet_b, self.__O_outlet = 0, (1, 0)
-        self.find_circles()
+        self.__O_inlet, self.r_inlet_b = (0, 0), 0
+        self.__O_outlet, self.r_outlet_b = (1, 0), 0
 
     def Bezier(self):
         if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
@@ -588,6 +585,13 @@ class Airfoil:
             export2(plt, file_path='exports/airfoil', file_name='airfoil', file_extension='png', show_time=False)
         plt.tight_layout()
         plt.show()
+
+    def to_array(self, duplicates: bool = True):
+        """Перевод координат в массив обхода против часовой стрелки считая с выходной кромки"""
+        return array((
+            self.coords['u']['x'][::-1] + self.coords['l']['x'] if duplicates else self.coords['l']['x'][1::],
+            self.coords['u']['y'][::-1] + self.coords['l']['y'] if duplicates else self.coords['l']['y'][1::]
+        ), dtype='float64').T
 
     def to_dataframe(self, bears: str = 'pandas'):
         if bears.strip().lower() == 'pandas':
@@ -807,11 +811,7 @@ class Grate:
                 self.yd.append(YDT)
                 j0 = jt
 
-        '''self.r = [0]
-        for i in range(len(self.d) - 1):
-            self.r.append(self.r[i] + dist((self.xd[i], self.yd[i]), (self.xd[i + 1], self.yd[i + 1])))'''
-
-        self.r = np.zeros(len(self.d))
+        self.r = zeros(len(self.d))
         for i in range(1, len(self.d)):
             self.r[i] = self.r[i - 1] + dist((self.xd[i - 1], self.yd[i - 1]), (self.xd[i], self.yd[i]))
 
@@ -1001,6 +1001,7 @@ def test() -> None:
 
         print(airfoil.to_dataframe(bears='pandas'))
         print(airfoil.to_dataframe(bears='polars'))
+        print(airfoil.to_array())
 
         print(Fore.MAGENTA + 'airfoil properties:' + Fore.RESET)
         for k, v in airfoil.properties.items(): print(f'{k}: {v}')
