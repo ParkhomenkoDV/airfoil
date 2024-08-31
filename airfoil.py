@@ -4,7 +4,9 @@ from tqdm import tqdm
 from colorama import Fore
 
 import numpy as np
-from numpy import linspace, arange, array, nan, inf, pi, cos, sin, tan, arctan, sqrt, floor, ceil, radians, degrees
+from numpy import array, arange, linspace, zeros
+from numpy import nan, isnan, inf, isinf, pi
+from numpy import cos, sin, tan, arctan as atan, sqrt, floor, ceil, radians, degrees
 from scipy import interpolate, integrate
 from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
@@ -222,47 +224,45 @@ class Airfoil:
         self.__O_outlet = 1 - self.r_outlet_b, -k_outlet * self.r_outlet_b
 
         # точки пересечения линий спинки и корыта
-        xcl_u, ycl_u = COOR(tan(arctan(k_inlet) + g_u_inlet),
-                            sqrt(tan(arctan(k_inlet) + g_u_inlet) ** 2 + 1) * self.r_inlet_b -
-                            (tan(arctan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
-                            tan(arctan(k_outlet) - g_u_outlet),
-                            sqrt(tan(arctan(k_outlet) - g_u_outlet) ** 2 + 1) * self.r_outlet_b -
-                            (tan(arctan(k_outlet) - g_u_outlet)) * self.__O_outlet[0] - (-1) * self.__O_outlet[1])
+        xcl_u, ycl_u = COOR(tan(atan(k_inlet) + g_u_inlet),
+                            sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.r_inlet_b -
+                            (tan(atan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
+                            tan(atan(k_outlet) - g_u_outlet),
+                            sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.r_outlet_b -
+                            (tan(atan(k_outlet) - g_u_outlet)) * self.__O_outlet[0] - (-1) * self.__O_outlet[1])
 
-        xcl_d, ycl_d = COOR(tan(arctan(k_inlet) - g_d_inlet),
-                            -sqrt(tan(arctan(k_inlet) - g_d_inlet) ** 2 + 1) * self.r_inlet_b -
-                            (tan(arctan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
-                            tan(arctan(k_outlet) + g_d_outlet),
-                            -sqrt(tan(arctan(k_outlet) + g_d_outlet) ** 2 + 1) * self.r_outlet_b -
-                            (tan(arctan(k_outlet) + g_d_outlet)) * self.__O_outlet[0] - (-1) * self.__O_outlet[1])
+        xcl_d, ycl_d = COOR(tan(atan(k_inlet) - g_d_inlet),
+                            -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.r_inlet_b -
+                            (tan(atan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
+                            tan(atan(k_outlet) + g_d_outlet),
+                            -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.r_outlet_b -
+                            (tan(atan(k_outlet) + g_d_outlet)) * self.__O_outlet[0] - (-1) * self.__O_outlet[1])
 
         # точки пересечения окружностей со спинкой и корытом
-        xclc_i_u, yclc_i_u = COOR(tan(arctan(k_inlet) + g_u_inlet),
-                                  sqrt(tan(arctan(k_inlet) + g_u_inlet) ** 2 + 1) * self.r_inlet_b
-                                  - (tan(arctan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
-                                  -1 / (tan(arctan(k_inlet) + g_u_inlet)),
-                                  -(-1 / tan(arctan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[
-                                      1])
+        xclc_i_u, yclc_i_u = COOR(tan(atan(k_inlet) + g_u_inlet),
+                                  sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.r_inlet_b
+                                  - (tan(atan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
+                                  -1 / (tan(atan(k_inlet) + g_u_inlet)),
+                                  -(-1 / tan(atan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1])
 
-        xclc_i_d, yclc_i_d = COOR(tan(arctan(k_inlet) - g_d_inlet),
-                                  -sqrt(tan(arctan(k_inlet) - g_d_inlet) ** 2 + 1) * self.r_inlet_b
-                                  - (tan(arctan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
-                                  -1 / (tan(arctan(k_inlet) - g_d_inlet)),
-                                  -(-1 / tan(arctan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[
-                                      1])
+        xclc_i_d, yclc_i_d = COOR(tan(atan(k_inlet) - g_d_inlet),
+                                  -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.r_inlet_b
+                                  - (tan(atan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
+                                  -1 / (tan(atan(k_inlet) - g_d_inlet)),
+                                  -(-1 / tan(atan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1])
 
-        xclc_e_u, yclc_e_u = COOR(tan(arctan(k_outlet) - g_u_outlet),
-                                  sqrt(tan(arctan(k_outlet) - g_u_outlet) ** 2 + 1) * self.r_outlet_b
-                                  - tan(arctan(k_outlet) - g_u_outlet) * self.__O_outlet[0] - (-1) * self.__O_outlet[1],
-                                  -1 / tan(arctan(k_outlet) - g_u_outlet),
-                                  -(-1 / tan(arctan(k_outlet) - g_u_outlet)) * self.__O_outlet[0] - (-1) *
+        xclc_e_u, yclc_e_u = COOR(tan(atan(k_outlet) - g_u_outlet),
+                                  sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.r_outlet_b
+                                  - tan(atan(k_outlet) - g_u_outlet) * self.__O_outlet[0] - (-1) * self.__O_outlet[1],
+                                  -1 / tan(atan(k_outlet) - g_u_outlet),
+                                  -(-1 / tan(atan(k_outlet) - g_u_outlet)) * self.__O_outlet[0] - (-1) *
                                   self.__O_outlet[1])
 
-        xclc_e_d, yclc_e_d = COOR(tan(arctan(k_outlet) + g_d_outlet),
-                                  -sqrt(tan(arctan(k_outlet) + g_d_outlet) ** 2 + 1) * self.r_outlet_b
-                                  - tan(arctan(k_outlet) + g_d_outlet) * self.__O_outlet[0] - (-1) * self.__O_outlet[1],
-                                  -1 / tan(arctan(k_outlet) + g_d_outlet),
-                                  -(-1 / tan(arctan(k_outlet) + g_d_outlet)) * self.__O_outlet[0] - (-1) *
+        xclc_e_d, yclc_e_d = COOR(tan(atan(k_outlet) + g_d_outlet),
+                                  -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.r_outlet_b
+                                  - tan(atan(k_outlet) + g_d_outlet) * self.__O_outlet[0] - (-1) * self.__O_outlet[1],
+                                  -1 / tan(atan(k_outlet) + g_d_outlet),
+                                  -(-1 / tan(atan(k_outlet) + g_d_outlet)) * self.__O_outlet[0] - (-1) *
                                   self.__O_outlet[1])
 
         # точки входной окружности кромки по спинке
@@ -307,7 +307,7 @@ class Airfoil:
     def NACA(self, closed=True):
         i = arange(self.__N)
         betta = i * pi / (2 * (self.__N - 1))
-        x = 1 - np.cos(betta)
+        x = 1 - cos(betta)
 
         mask = (0 <= x) & (x <= self.xf_b)
 
@@ -317,13 +317,13 @@ class Airfoil:
 
         gradYf = 2 * self.f_b
 
-        a = np.array([0.2969, -0.126, -0.3516, 0.2843, -0.1036 if closed else -0.1015])
+        a = array([0.2969, -0.126, -0.3516, 0.2843, -0.1036 if closed else -0.1015])
 
         yc = self.c_b / 0.2 * np.dot(a, np.column_stack((np.sqrt(x), x, x ** 2, x ** 3, x ** 4)).T)
 
-        tetta = np.arctan(gradYf)
+        tetta = atan(gradYf)
 
-        sin_tetta, cos_tetta = np.sin(tetta), np.cos(tetta)  # предварительный расчет для ускорения работы
+        sin_tetta, cos_tetta = sin(tetta), cos(tetta)  # предварительный расчет для ускорения работы
 
         self.coords['u']['x'], self.coords['u']['y'] = x - yc * sin_tetta, yf + yc * cos_tetta
         self.coords['l']['x'], self.coords['l']['y'] = x + yc * sin_tetta, yf - yc * cos_tetta
@@ -357,7 +357,7 @@ class Airfoil:
         self.coords['l']['x'] = x
         self.coords['l']['y'] = self.h * (0.25 * (-x - 17 * x ** 2 - 6 * x ** 3) - x ** 0.87 * (1 - x) ** 0.56)
 
-        angle = arctan((self.coords['u']['y'][-1] - self.coords['u']['y'][0]) / (1 - 0))
+        angle = atan((self.coords['u']['y'][-1] - self.coords['u']['y'][0]) / (1 - 0))
         scale = dist((self.coords['u']['x'][0], self.coords['u']['y'][0]),
                      (self.coords['u']['x'][-1], self.coords['u']['y'][-1]))
         self.transform(angle=angle, scale=1 / scale, inplace=True)
@@ -376,7 +376,7 @@ class Airfoil:
         x_c_b, y_c_b = c_b
         x_outlet, y_outlet = outlet
 
-        coef = np.zeros(6)
+        coef = zeros(6)
 
         # 1st coefficient depends on surface (pressure or suction)
         coef[0] = -sqrt(2 * radius_inlet) if surface == 'l' else sqrt(2 * radius_inlet)
@@ -636,7 +636,7 @@ class Airfoil:
         self.__props['Wp'] = self.__props['Jp'] / max(
             sqrt((0 - self.__props['x0']) ** 2 + (0 - self.__props['y0']) ** 2),
             sqrt((1 - self.__props['x0']) ** 2 + (0 - self.__props['y0']) ** 2))
-        self.__props['alpha'] = 0.5 * arctan(-2 * self.__props['Jxcyc'] / (self.__props['Jxc'] - self.__props['Jyc']))
+        self.__props['alpha'] = 0.5 * atan(-2 * self.__props['Jxcyc'] / (self.__props['Jxc'] - self.__props['Jyc']))
         self.__props['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(Yu, x) ** 2), 0, 1, epsrel=epsrel)[0]
         self.__props['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(Yl, x) ** 2), 0, 1, epsrel=epsrel)[0]
 
@@ -847,7 +847,7 @@ class Grate:
             X = x[-1] + step * cosfromtan(derivative(Fd, x[-1]))
             if X > xgmax: break
             x.append(X)
-        x = np.array(x)
+        x = array(x)
 
         Au, _, Cu = line_coefs(func=Fd, x0=x)
 
@@ -858,9 +858,9 @@ class Grate:
 
             Al, _, Cl = line_coefs(func=Fu, x0=xl)
 
-            return [abs(Au * x0 + (-1) * y0 + Cu) / np.sqrt(Au ** 2 + 1) - r0,  # расстояние от точки окружности
+            return [abs(Au * x0 + (-1) * y0 + Cu) / sqrt(Au ** 2 + 1) - r0,  # расстояние от точки окружности
                     ((xu - x0) ** 2 + (yu - y0) ** 2) - r0 ** 2,  # до кривой корыта
-                    abs(Al * x0 + (-1) * y0 + Cl) / np.sqrt(Al ** 2 + 1) - r0,  # расстояние от точки окружности
+                    abs(Al * x0 + (-1) * y0 + Cl) / sqrt(Al ** 2 + 1) - r0,  # расстояние от точки окружности
                     ((xl - x0) ** 2 + (Fu(xl) - y0) ** 2) - r0 ** 2]  # до кривой спинки
 
         self.d, self.xd, self.yd = list(), list(), list()
