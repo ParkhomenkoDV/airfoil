@@ -190,6 +190,7 @@ class Airfoil:
             assert hasattr(self, 'u') and hasattr(self, 'l')
             validate_points(self.u)
             validate_points(self.l)
+            assert hasattr(self, 'deg') and isinstance(self.deg, int) and 0 <= self.deg <= 3
 
         return True
 
