@@ -858,15 +858,15 @@ class Grate:
 
             Al, _, Cl = line_coefs(func=Fu, x0=xl)
 
-            return [abs(Au * x0 + (-1) * y0 + Cu) / np.sqrt(Au ** 2 + 1) - r0,
-                    ((xu - x0) ** 2 + (yu - y0) ** 2) - r0 ** 2,
-                    abs(Al * x0 + (-1) * y0 + Cl) / np.sqrt(Al ** 2 + 1) - r0,
-                    ((xl - x0) ** 2 + (Fu(xl) - y0) ** 2) - r0 ** 2]
+            return [abs(Au * x0 + (-1) * y0 + Cu) / np.sqrt(Au ** 2 + 1) - r0,  # расстояние от точки окружности
+                    ((xu - x0) ** 2 + (yu - y0) ** 2) - r0 ** 2,  # до кривой корыта
+                    abs(Al * x0 + (-1) * y0 + Cl) / np.sqrt(Al ** 2 + 1) - r0,  # расстояние от точки окружности
+                    ((xl - x0) ** 2 + (Fu(xl) - y0) ** 2) - r0 ** 2]  # до кривой спинки
 
         self.d, self.xd, self.yd = list(), list(), list()
 
         warnings.filterwarnings('error')
-        for xu, yu, a_u, c_u in zip(x, Fd(x), Au, Cu):
+        for xu, yu, a_u, c_u in tqdm(zip(x, Fd(x), Au, Cu), desc='Channel calculation', total=len(x)):
             try:
                 res = fsolve(equations, [xu, yu, self.__t_b / 2, xu], args=(xu, yu, a_u, c_u))
             except Exception:
