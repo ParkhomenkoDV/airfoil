@@ -245,7 +245,7 @@ class Airfoil:
         """Динамический ввод с защитой от дураков"""
         pass
 
-    def BMSTU(self):
+    def __bmstu(self) -> None:
         # tan угла входа и выхода потока
         k_inlet, k_outlet = 1 / (2 * self.xg_b / (self.xg_b - 1) * tan(self.e)), 1 / (2 * tan(self.e))
         if tan(self.e) * self.e > 0:
@@ -358,7 +358,7 @@ class Airfoil:
         self.coords['l']['x'] += (1 - self.r_outlet_b * (1 - cos(angles))).tolist()[::-1]
         self.coords['l']['y'] += (self.__O_outlet[1] - self.r_outlet_b * sin(angles)).tolist()[::-1]
 
-    def NACA(self, closed=True):
+    def __naca(self, closed=True) -> None:
         i = arange(self.__N)
         betta = i * pi / (2 * (self.__N - 1))
         x = 1 - cos(betta)
@@ -404,7 +404,7 @@ class Airfoil:
 
         self.find_circles()
 
-    def MYNK(self):
+    def __mynk(self) -> None:
         x = linspace(0, 1, self.__N)
         self.coords['u']['x'] = x
         self.coords['u']['y'] = self.h * (0.25 * (-x - 17 * x ** 2 - 6 * x ** 3) + x ** 0.87 * (1 - x) ** 0.56)
@@ -454,7 +454,7 @@ class Airfoil:
 
         return coef
 
-    def PARSEC(self):
+    def __parsec(self) -> None:
         """
         Generate and plot the contour of an airfoil using the PARSEC parameterization
         H. Sobieczky, *'Parametric airfoils and wings'* in *Notes on Numerical Fluid Mechanics*, Vol. 68, pp 71-88]
@@ -475,7 +475,7 @@ class Airfoil:
         self.__O_inlet, self.r_inlet_b = (0, 0), 0
         self.__O_outlet, self.r_outlet_b = (1, 0), 0
 
-    def Bezier(self):
+    def __bezier(self):
         if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
         if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
 
@@ -485,7 +485,7 @@ class Airfoil:
         self.__O_inlet, self.r_inlet_b = (0, 0), 0
         self.__O_outlet, self.r_outlet_b = (1, 0), 0
 
-    def MANUAL(self):
+    def __manual(self):
         if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
         if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
 
@@ -507,17 +507,17 @@ class Airfoil:
         self.validate()
 
         if self.method.upper() in ('NACA', 'N.A.C.A.'):
-            self.NACA()
+            self.__naca()
         elif self.method.upper() in ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'):
-            self.BMSTU()
+            self.__bmstu()
         elif self.method.upper() in ('MYNK', 'МУНК'):
-            self.MYNK()
+            self.__mynk()
         elif self.method.upper() in ('PARSEC',):
-            self.PARSEC()
+            self.__parsec()
         elif self.method.upper() in ('BEZIER', 'БЕЗЬЕ'):
-            self.Bezier()
+            self.__bezier()
         elif self.method.upper() in ('MANUAL', 'ВРУЧНУЮ'):
-            self.MANUAL()
+            self.__manual()
         else:
             print(Fore.RED + f'No such method {self.method}!' + Fore.RESET)
 
@@ -855,7 +855,7 @@ class Airfoil:
 
         # длина кривой
         l = integrate.quad(lambda x: sqrt(1 + derivative(Fd, x) ** 2), xgmin, xgmax, limit=self.__N ** 2)[0]
-        step = l / self.__N
+        step = l / self.__discreteness
 
         x = [xgmin]
         while True:
@@ -901,7 +901,10 @@ class Airfoil:
 
         return self.__channel
 
-    def show_grate(self):
+    def show_grate(self, n: int = 2):
+        """Построение решетки"""
+        assert isinstance(n, int) and 2 <= n  # количество профилей
+
         if not self.__channel: self.grate
         fg = plt.figure(figsize=(12, 6))  # размер в дюймах
         gs = fg.add_gridspec(1, 2)  # строки, столбца
