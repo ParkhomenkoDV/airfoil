@@ -1,3 +1,9 @@
+"""
+Список литературы:
+
+[1] =
+"""
+
 import sys
 import warnings
 from tqdm import tqdm
@@ -26,6 +32,7 @@ class Airfoil:
 
     rnd = 4  # количество значащих цифр
     __discreteness = 30  # рекомендуемое количество дискретных точек
+    # TODO
     __methods = {'BMSTU': {'description': '',
                            'aliases': ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'),
                            'attributes': {}},
@@ -487,7 +494,7 @@ class Airfoil:
         self.__O_inlet, self.r_inlet_b = (0, 0), 0
         self.__O_outlet, self.r_outlet_b = (1, 0), 0
 
-    def __bezier(self):
+    def __bezier(self) -> None:
         if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
         if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
 
@@ -497,7 +504,7 @@ class Airfoil:
         self.__O_inlet, self.r_inlet_b = (0, 0), 0
         self.__O_outlet, self.r_outlet_b = (1, 0), 0
 
-    def __manual(self):
+    def __manual(self) -> None:
         if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
         if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
 
