@@ -17,7 +17,7 @@ from curves import bernstein_curve
 
 sys.path.append('D:/Programming/Python/scripts')
 
-from tools import export2, isnum, COOR, Axis, angle, rounding, eps, dist, dist2line, isiter, derivative, line_coefs
+from tools import export2, COOR, Axis, angle, rounding, eps, dist, dist2line, isiter, derivative, line_coefs, tan2cos
 from decorators import timeit, warns
 
 
@@ -26,12 +26,24 @@ class Airfoil:
 
     rnd = 4  # количество значащих цифр
     __discreteness = 30  # рекомендуемое количество дискретных точек
-    __methods = {'BMSTU': ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'),
-                 'NACA': ('NACA', 'N.A.C.A.'),
-                 'MYNK': ('MYNK', 'МУНК'),
-                 'PARSEC': ('PARSEC',),
-                 'BEZIER': ('BEZIER', 'БЕЗЬЕ'),
-                 'MANUAL': ('MANUAL', 'ВРУЧНУЮ'), }
+    __methods = {'BMSTU': {'description': '',
+                           'aliases': ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'),
+                           'attributes': {}},
+                 'NACA': {'description': '',
+                          'aliases': ('NACA', 'N.A.C.A.'),
+                          'attributes': {}},
+                 'MYNK': {'description': '',
+                          'aliases': ('MYNK', 'МУНК'),
+                          'attributes': {}},
+                 'PARSEC': {'description': '',
+                            'aliases': ('PARSEC',),
+                            'attributes': {}},
+                 'BEZIER': {'description': '',
+                            'aliases': ('BEZIER', 'БЕЗЬЕ'),
+                            'attributes': {}},
+                 'MANUAL': {'description': '',
+                            'aliases': ('MANUAL', 'ВРУЧНУЮ'),
+                            'attributes': {}}, }
     __relative_step = 1.0  # дефолтный относительный шаг []
     __gamma = 0.0  # дефолтный угол установки [рад]
 
@@ -851,15 +863,13 @@ class Airfoil:
         xgmax = max(self.coords['u']['x'] + self.coords['l']['x']) - self.r_outlet_b
         ygmax = max(self.coords['u']['y']) + self.__t_b / 2
 
-        cosfromtan = lambda tg: sqrt(1 / (tg ** 2 + 1))
-
         # длина кривой
         l = integrate.quad(lambda x: sqrt(1 + derivative(Fd, x) ** 2), xgmin, xgmax, limit=self.__N ** 2)[0]
         step = l / self.__discreteness
 
         x = [xgmin]
         while True:
-            X = x[-1] + step * cosfromtan(derivative(Fd, x[-1]))
+            X = x[-1] + step * tan2cos(derivative(Fd, x[-1]))
             if X > xgmax: break
             x.append(X)
         x = array(x)
