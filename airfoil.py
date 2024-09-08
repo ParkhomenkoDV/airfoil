@@ -33,29 +33,55 @@ class Airfoil:
     rnd = 4  # количество значащих цифр
     __discreteness = 30  # рекомендуемое количество дискретных точек
     # TODO
+    '''
+        airfoils[-1].x_ray_cross = 0.4
+        airfoils[-1].g_ = 0.5
+        '''
     __methods = {'BMSTU': {'description': '',
                            'aliases': ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'),
-                           'borders': None,
-                           'attributes': {}},
+                           'attributes': {
+                               'rotation_angle': {
+                                   'description': 'угол поворота потока',
+                                   'unit': '[rad]',
+                                   'bounds': (0, radians(180))},
+                               'relative_inlet_radius': {
+                                   'description': 'относительный радиус входной кромки',
+                                   'unit': '[]',
+                                   'bounds': (0, 1)},
+                               'relative_outlet_radius': {
+                                   'description': 'относительный радиус выходной кромки',
+                                   'unit': '[]',
+                                   'bounds': (0, 1)},
+                               'inlet_angle': {
+                                   'description': 'угол раскрытия входной кромки',
+                                   'unit': '[rad]',
+                                   'bounds': (0, 1)},
+                               'outlet_angle': {
+                                   'description': 'угол раскрытия выходной кромки',
+                                   'unit': '[rad]',
+                                   'bounds': (0, 1)},
+                               'x_ray_cross': {
+                                   'description': 'относительная координата пересечения входного и выходного лучей',
+                                   'unit': '[]',
+                                   'bounds': (0, 1)},
+                               'upper_proximity': {
+                                   'description': 'степень приближенности к спинке',
+                                   'unit': '[]',
+                                   'bounds': (0, 1)}}},
                  'NACA': {'description': '',
                           'aliases': ('NACA', 'N.A.C.A.'),
-                          'borders': None,
                           'attributes': {}},
                  'MYNK': {'description': '',
                           'aliases': ('MYNK', 'МУНК'),
-                          'borders': None,
                           'attributes': {}},
                  'PARSEC': {'description': '',
                             'aliases': ('PARSEC',),
-                            'borders': None,
                             'attributes': {}},
                  'BEZIER': {'description': '',
                             'aliases': ('BEZIER', 'БЕЗЬЕ'),
-                            'borders': None,
                             'attributes': {}},
                  'MANUAL': {'description': '',
                             'aliases': ('MANUAL', 'ВРУЧНУЮ'),
-                            'borders': None,
                             'attributes': {}}, }
     __relative_step = 1.0  # дефолтный относительный шаг []
     __gamma = 0.0  # дефолтный угол установки [рад]
@@ -64,6 +90,11 @@ class Airfoil:
     def __version__(cls):
         version = '3.0'
         print('Продувка')
+
+    @classmethod
+    def help(cls):
+        """Помощь при работе с классом Airfoil и его объектами"""
+        pass  # TODO
 
     def validate(self, **kwargs) -> None:
         """Проверка верности ввода атрибутов профиля"""
@@ -100,15 +131,15 @@ class Airfoil:
                 assert isinstance(self.xg_b, (int, float))
                 assert 0 <= self.xg_b <= 1
 
-                # относ. радиус входной кромоки
-                assert hasattr(self, 'r_inlet_b')
-                assert isinstance(self.r_inlet_b, (int, float))
-                assert 0 <= self.r_inlet_b <= 1
+                # относ. радиус входной кромки
+                assert hasattr(self, 'relative_inlet_radius')
+                assert isinstance(self.relative_inlet_radius, (int, float))
+                assert 0 <= self.relative_inlet_radius <= 1
 
                 # относ. радиус выходной кромки
-                assert hasattr(self, 'r_outlet_b')
-                assert isinstance(self.r_outlet_b, (int, float))
-                assert 0 <= self.r_outlet_b <= 1
+                assert hasattr(self, 'relative_outlet_radius')
+                assert isinstance(self.relative_outlet_radius, (int, float))
+                assert 0 <= self.relative_outlet_radius <= 1
 
                 # степень приближенности к спинке
                 assert hasattr(self, 'g_')
@@ -116,18 +147,18 @@ class Airfoil:
                 assert 0 <= self.g_ <= 1
 
                 # угол раскрытия входной кромоки
-                assert hasattr(self, 'g_inlet')
-                assert isinstance(self.g_inlet, (int, float, np.number))
-                assert 0 <= self.g_inlet
+                assert hasattr(self, 'inlet_angle')
+                assert isinstance(self.inlet_angle, (int, float, np.number))
+                assert 0 <= self.inlet_angle
 
                 # угол раскрытия выходной кромки
-                assert hasattr(self, 'g_outlet')
-                assert isinstance(self.g_outlet, (int, float, np.number))
-                assert 0 <= self.g_outlet
+                assert hasattr(self, 'outlet_angle')
+                assert isinstance(self.outlet_angle, (int, float, np.number))
+                assert 0 <= self.outlet_angle
 
                 # угол поворота потока
-                assert hasattr(self, 'e')
-                assert isinstance(self.e, (int, float, np.number))
+                assert hasattr(self, 'rotation_angle')
+                assert isinstance(self.rotation_angle, (int, float, np.number))
 
             elif self.__method in Airfoil.__methods['NACA']['aliases']:
                 # относ. максимальная толщина профиля
@@ -205,17 +236,17 @@ class Airfoil:
         self.__relative_step = relative_step  # относительный шаг []
         self.__gamma = gamma  # угол установки [рад]
 
-        self.__coords = dict()  # относительные координаты спинки и корыта
+        self.__coordinates = dict()  # относительные координаты спинки и корыта
         self.__properties = dict()  # относительные характеристики профиля
-        self.__channel = dict()  # дифузорность/конфузорность решетки
+        self.__channel = list()  # дифузорность/конфузорность решетки
 
     def __str__(self) -> str:
         return self.__method
 
     def __setattr__(self, key, value):
         """При установке новых атрибутов расчет обнуляется"""
-        if key not in ('_Airfoil__coords', '_Airfoil__properties', '_Airfoil__channel'):
-            self.__coords, self.__properties, self.__channel = dict(), dict(), dict()
+        if key not in ('_Airfoil__coordinates', '_Airfoil__properties', '_Airfoil__channel'):
+            self.__coordinates, self.__properties, self.__channel = dict(), dict(), list()
         object.__setattr__(self, key, value)
 
     @property
@@ -273,7 +304,7 @@ class Airfoil:
 
     @property
     def coords(self) -> dict[str:dict]:
-        return self.__coords
+        return self.__coordinates
 
     # TODO
     def input(self):
@@ -282,24 +313,25 @@ class Airfoil:
 
     def __bmstu(self) -> None:
         # tan угла входа и выхода потока
-        k_inlet, k_outlet = 1 / (2 * self.xg_b / (self.xg_b - 1) * tan(self.e)), 1 / (2 * tan(self.e))
-        if tan(self.e) * self.e > 0:
+        k_inlet = 1 / (2 * self.xg_b / (self.xg_b - 1) * tan(self.rotation_angle))
+        k_outlet = 1 / (2 * tan(self.rotation_angle))
+        if tan(self.rotation_angle) * self.e > 0:
             k_inlet *= ((self.xg_b / (self.xg_b - 1) - 1) -
                         sqrt((self.xg_b / (self.xg_b - 1) - 1) ** 2 -
-                             4 * (self.xg_b / (self.xg_b - 1) * tan(self.e) ** 2)))
+                             4 * (self.xg_b / (self.xg_b - 1) * tan(self.rotation_angle) ** 2)))
             k_outlet *= ((self.xg_b / (self.xg_b - 1) - 1) -
                          sqrt((self.xg_b / (self.xg_b - 1) - 1) ** 2 -
-                              4 * (self.xg_b / (self.xg_b - 1) * tan(self.e) ** 2)))
+                              4 * (self.xg_b / (self.xg_b - 1) * tan(self.rotation_angle) ** 2)))
         else:
             k_inlet *= ((self.xg_b / (self.xg_b - 1) - 1) +
                         sqrt((self.xg_b / (self.xg_b - 1) - 1) ** 2 -
-                             4 * (self.xg_b / (self.xg_b - 1) * tan(self.e) ** 2)))
+                             4 * (self.xg_b / (self.xg_b - 1) * tan(self.rotation_angle) ** 2)))
             k_outlet *= ((self.xg_b / (self.xg_b - 1) - 1) +
                          sqrt((self.xg_b / (self.xg_b - 1) - 1) ** 2 -
-                              4 * (self.xg_b / (self.xg_b - 1) * tan(self.e) ** 2)))
+                              4 * (self.xg_b / (self.xg_b - 1) * tan(self.rotation_angle) ** 2)))
 
         # углы входа и выхода профиля
-        if self.e > 0:
+        if self.rotation_angle > 0:
             g_u_inlet, g_d_inlet = (1 - self.g_) * self.g_inlet, self.g_ * self.g_inlet
             g_u_outlet, g_d_outlet = (1 - self.g_) * self.g_outlet, self.g_ * self.g_outlet
         else:
@@ -538,7 +570,7 @@ class Airfoil:
     @timeit()
     def __calculate(self):
         self.__properties = dict()
-        self.__coords = dict()
+        self.__coordinates = dict()
         self.validate()
 
         if self.method in Airfoil.__methods['NACA']['aliases']:
@@ -554,7 +586,7 @@ class Airfoil:
         elif self.method in Airfoil.__methods['MANUAL']['aliases']:
             self.__manual()
         else:
-            print(Fore.RED + f'No such method {self.method}!' + Fore.RESET)
+            print(Fore.RED + f'No such method {self.method}! Use Airfoil.hepl' + Fore.RESET)
 
         dct = self.transform(self.properties['x0'], self.properties['y0'],
                              self.__gamma, scale=1, inplace=False)
@@ -586,7 +618,7 @@ class Airfoil:
     @property
     def is_fitted(self) -> bool:
         """Проверка на выполненный расчет"""
-        return all((self.__coords, self.__properties, self.__channel))
+        return all((self.__coordinates, self.__properties, self.__channel))
 
     def transform(self, x0=0.0, y0=0.0, angle=0.0, scale=1.0, inplace: bool = False) -> dict[str: dict]:
         """Перенос-поворот кривых спинки и корыта профиля"""
@@ -653,6 +685,8 @@ class Airfoil:
 
     def show(self, figsize=(12, 8), savefig=False):
         """Построение профиля"""
+        if not self.is_fitted: self.__calculate()
+
         fg = plt.figure(figsize=figsize)
         gs = fg.add_gridspec(2, 3)  # строки, столбцы
 
@@ -999,11 +1033,11 @@ def test() -> None:
     if 1:
         airfoils.append(Airfoil('BMSTU', 30, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].xg_b = 0.4
-        airfoils[-1].r_inlet_b, airfoils[-1].r_outlet_b = 0.06, 0.03
+        airfoils[-1].rotation_angle = radians(110)
+        airfoils[-1].relative_inlet_radius, airfoils[-1].relative_outlet_radius = 0.06, 0.03
+        airfoils[-1].inlet_angle, airfoils[-1].outlet_angle = radians(20), radians(10)
+        airfoils[-1].x_ray_cross = 0.4
         airfoils[-1].g_ = 0.5
-        airfoils[-1].g_inlet, airfoils[-1].g_outlet = radians(20), radians(10)
-        airfoils[-1].e = radians(110)
 
     if 1:
         airfoils.append(Airfoil('NACA', 40, 1 / 1.698, radians(46.23)))
