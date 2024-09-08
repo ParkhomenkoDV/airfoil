@@ -33,17 +33,14 @@ class Airfoil:
     rnd = 4  # количество значащих цифр
     __discreteness = 30  # рекомендуемое количество дискретных точек
     # TODO
-    '''
-        airfoils[-1].x_ray_cross = 0.4
-        airfoils[-1].g_ = 0.5
-        '''
     __methods = {'BMSTU': {'description': '',
                            'aliases': ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'),
                            'attributes': {
                                'rotation_angle': {
                                    'description': 'угол поворота потока',
                                    'unit': '[rad]',
-                                   'bounds': (0, radians(180))},
+                                   'bounds': (0, radians(180)),
+                                   'assert': ''},
                                'relative_inlet_radius': {
                                    'description': 'относительный радиус входной кромки',
                                    'unit': '[]',
@@ -127,9 +124,9 @@ class Airfoil:
         if hasattr(self, '_Airfoil__method'):
             if self.__method in Airfoil.__methods['BMSTU']['aliases']:
                 # относ. координата пересечения входного и выходного лучей
-                assert hasattr(self, 'xg_b')
-                assert isinstance(self.xg_b, (int, float))
-                assert 0 <= self.xg_b <= 1
+                assert hasattr(self, 'x_ray_cross')
+                assert isinstance(self.x_ray_cross, (int, float))
+                assert 0 <= self.x_ray_cross <= 1
 
                 # относ. радиус входной кромки
                 assert hasattr(self, 'relative_inlet_radius')
@@ -142,9 +139,9 @@ class Airfoil:
                 assert 0 <= self.relative_outlet_radius <= 1
 
                 # степень приближенности к спинке
-                assert hasattr(self, 'g_')
-                assert isinstance(self.g_, (int, float))
-                assert 0 <= self.g_ <= 1
+                assert hasattr(self, 'upper_proximity')
+                assert isinstance(self.upper_proximity, (int, float))
+                assert 0 <= self.upper_proximity <= 1
 
                 # угол раскрытия входной кромоки
                 assert hasattr(self, 'inlet_angle')
@@ -184,8 +181,8 @@ class Airfoil:
             elif self.__method in Airfoil.__methods['PARSEC']['aliases']:
                 # относ. радиус входной кромки
                 assert hasattr(self, 'r_inlet_b')
-                assert isinstance(self.r_inlet_b, (int, float))
-                assert 0 <= self.r_inlet_b <= 1
+                assert isinstance(self.relative_inlet_radius, (int, float))
+                assert 0 <= self.relative_inlet_radius <= 1
 
                 # относ. координата максимального прогиба спинки
                 assert hasattr(self, "f_b_u")
@@ -303,7 +300,7 @@ class Airfoil:
         self.__gamma = Airfoil.__gamma
 
     @property
-    def coords(self) -> dict[str:dict]:
+    def coordinates(self) -> dict[str:dict]:
         return self.__coordinates
 
     # TODO
@@ -311,119 +308,128 @@ class Airfoil:
         """Динамический ввод с защитой от дураков"""
         pass
 
-    def __bmstu(self) -> None:
+    def __bmstu(self) -> dict[str:dict[str:list]]:
         # tan угла входа и выхода потока
-        k_inlet = 1 / (2 * self.xg_b / (self.xg_b - 1) * tan(self.rotation_angle))
+        k_inlet = 1 / (2 * self.x_ray_cross / (self.x_ray_cross - 1) * tan(self.rotation_angle))
         k_outlet = 1 / (2 * tan(self.rotation_angle))
-        if tan(self.rotation_angle) * self.e > 0:
-            k_inlet *= ((self.xg_b / (self.xg_b - 1) - 1) -
-                        sqrt((self.xg_b / (self.xg_b - 1) - 1) ** 2 -
-                             4 * (self.xg_b / (self.xg_b - 1) * tan(self.rotation_angle) ** 2)))
-            k_outlet *= ((self.xg_b / (self.xg_b - 1) - 1) -
-                         sqrt((self.xg_b / (self.xg_b - 1) - 1) ** 2 -
-                              4 * (self.xg_b / (self.xg_b - 1) * tan(self.rotation_angle) ** 2)))
+        if tan(self.rotation_angle) * self.rotation_angle > 0:
+            k_inlet *= ((self.x_ray_cross / (self.x_ray_cross - 1) - 1) -
+                        sqrt((self.x_ray_cross / (self.x_ray_cross - 1) - 1) ** 2 -
+                             4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(self.rotation_angle) ** 2)))
+            k_outlet *= ((self.x_ray_cross / (self.x_ray_cross - 1) - 1) -
+                         sqrt((self.x_ray_cross / (self.x_ray_cross - 1) - 1) ** 2 -
+                              4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(self.rotation_angle) ** 2)))
         else:
-            k_inlet *= ((self.xg_b / (self.xg_b - 1) - 1) +
-                        sqrt((self.xg_b / (self.xg_b - 1) - 1) ** 2 -
-                             4 * (self.xg_b / (self.xg_b - 1) * tan(self.rotation_angle) ** 2)))
-            k_outlet *= ((self.xg_b / (self.xg_b - 1) - 1) +
-                         sqrt((self.xg_b / (self.xg_b - 1) - 1) ** 2 -
-                              4 * (self.xg_b / (self.xg_b - 1) * tan(self.rotation_angle) ** 2)))
+            k_inlet *= ((self.x_ray_cross / (self.x_ray_cross - 1) - 1) +
+                        sqrt((self.x_ray_cross / (self.x_ray_cross - 1) - 1) ** 2 -
+                             4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(self.rotation_angle) ** 2)))
+            k_outlet *= ((self.x_ray_cross / (self.x_ray_cross - 1) - 1) +
+                         sqrt((self.x_ray_cross / (self.x_ray_cross - 1) - 1) ** 2 -
+                              4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(self.rotation_angle) ** 2)))
 
         # углы входа и выхода профиля
         if self.rotation_angle > 0:
-            g_u_inlet, g_d_inlet = (1 - self.g_) * self.g_inlet, self.g_ * self.g_inlet
-            g_u_outlet, g_d_outlet = (1 - self.g_) * self.g_outlet, self.g_ * self.g_outlet
+
+            g_u_inlet, g_d_inlet = (
+                                           1 - self.upper_proximity) * self.inlet_angle, self.upper_proximity * self.inlet_angle
+            g_u_outlet, g_d_outlet = (
+                                             1 - self.upper_proximity) * self.outlet_angle, self.upper_proximity * self.outlet_angle
         else:
-            g_u_inlet, g_d_inlet = self.g_ * self.g_inlet, (1 - self.g_) * self.g_inlet,
-            g_u_outlet, g_d_outlet = self.g_ * self.g_outlet, (1 - self.g_) * self.g_outlet
+            g_u_inlet, g_d_inlet = self.upper_proximity * self.inlet_angle, (
+                    1 - self.upper_proximity) * self.inlet_angle,
+            g_u_outlet, g_d_outlet = self.upper_proximity * self.outlet_angle, (
+                    1 - self.upper_proximity) * self.outlet_angle
 
         # положения центров окружностей входной и выходной кромок
-        self.__O_inlet = self.r_inlet_b, k_inlet * self.r_inlet_b
-        self.__O_outlet = 1 - self.r_outlet_b, -k_outlet * self.r_outlet_b
+        self.__O_inlet = self.relative_inlet_radius, k_inlet * self.relative_inlet_radius
+        self.__O_outlet = 1 - self.relative_outlet_radius, -k_outlet * self.relative_outlet_radius
 
         # точки пересечения линий спинки и корыта
         xcl_u, ycl_u = COOR(tan(atan(k_inlet) + g_u_inlet),
-                            sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.r_inlet_b -
+                            sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.relative_inlet_radius -
                             (tan(atan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
                             tan(atan(k_outlet) - g_u_outlet),
-                            sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.r_outlet_b -
+                            sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.relative_outlet_radius -
                             (tan(atan(k_outlet) - g_u_outlet)) * self.__O_outlet[0] - (-1) * self.__O_outlet[1])
 
         xcl_d, ycl_d = COOR(tan(atan(k_inlet) - g_d_inlet),
-                            -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.r_inlet_b -
+                            -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.relative_inlet_radius -
                             (tan(atan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
                             tan(atan(k_outlet) + g_d_outlet),
-                            -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.r_outlet_b -
+                            -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.relative_outlet_radius -
                             (tan(atan(k_outlet) + g_d_outlet)) * self.__O_outlet[0] - (-1) * self.__O_outlet[1])
 
         # точки пересечения окружностей со спинкой и корытом
         xclc_i_u, yclc_i_u = COOR(tan(atan(k_inlet) + g_u_inlet),
-                                  sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.r_inlet_b
+                                  sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.relative_inlet_radius
                                   - (tan(atan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
                                   -1 / (tan(atan(k_inlet) + g_u_inlet)),
                                   -(-1 / tan(atan(k_inlet) + g_u_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1])
 
         xclc_i_d, yclc_i_d = COOR(tan(atan(k_inlet) - g_d_inlet),
-                                  -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.r_inlet_b
+                                  -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.relative_inlet_radius
                                   - (tan(atan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1],
                                   -1 / (tan(atan(k_inlet) - g_d_inlet)),
                                   -(-1 / tan(atan(k_inlet) - g_d_inlet)) * self.__O_inlet[0] - (-1) * self.__O_inlet[1])
 
         xclc_e_u, yclc_e_u = COOR(tan(atan(k_outlet) - g_u_outlet),
-                                  sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.r_outlet_b
+                                  sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.relative_outlet_radius
                                   - tan(atan(k_outlet) - g_u_outlet) * self.__O_outlet[0] - (-1) * self.__O_outlet[1],
                                   -1 / tan(atan(k_outlet) - g_u_outlet),
                                   -(-1 / tan(atan(k_outlet) - g_u_outlet)) * self.__O_outlet[0] - (-1) *
                                   self.__O_outlet[1])
 
         xclc_e_d, yclc_e_d = COOR(tan(atan(k_outlet) + g_d_outlet),
-                                  -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.r_outlet_b
+                                  -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.relative_outlet_radius
                                   - tan(atan(k_outlet) + g_d_outlet) * self.__O_outlet[0] - (-1) * self.__O_outlet[1],
                                   -1 / tan(atan(k_outlet) + g_d_outlet),
                                   -(-1 / tan(atan(k_outlet) + g_d_outlet)) * self.__O_outlet[0] - (-1) *
                                   self.__O_outlet[1])
+
+        coordinates = {'u': {'x': list(), 'y': list()}, 'l': {'x': list(), 'y': list()}}
 
         # точки входной окружности кромки по спинке
         an = angle(points=((0, self.__O_inlet[1]), self.__O_inlet, (xclc_i_u, yclc_i_u)))
         if xclc_i_u > self.__O_inlet[0]: an = pi - an
         # уменьшение угла для предотвращения дублирования координат
         angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
-        self.coords['u']['x'] = (self.r_inlet_b * (1 - cos(angles))).tolist()
-        self.coords['u']['y'] = (self.__O_inlet[1] + self.r_inlet_b * sin(angles)).tolist()
+        coordinates['u']['x'] = (self.relative_inlet_radius * (1 - cos(angles))).tolist()
+        coordinates['u']['y'] = (self.__O_inlet[1] + self.relative_inlet_radius * sin(angles)).tolist()
 
         # точки входной окружности кромки по корыту
         an = angle(points=((0, self.__O_inlet[1]), self.__O_inlet, (xclc_i_d, yclc_i_d)))
         if xclc_i_d > self.__O_inlet[0]: an = pi - an
         # уменьшение угла для предотвращения дублирования координат
         angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
-        self.coords['l']['x'] = (self.r_inlet_b * (1 - cos(angles))).tolist()
-        self.coords['l']['y'] = (self.__O_inlet[1] - self.r_inlet_b * sin(angles)).tolist()
+        coordinates['l']['x'] = (self.relative_inlet_radius * (1 - cos(angles))).tolist()
+        coordinates['l']['y'] = (self.__O_inlet[1] - self.relative_inlet_radius * sin(angles)).tolist()
 
         xu, yu = bernstein_curve(((xclc_i_u, yclc_i_u), (xcl_u, ycl_u), (xclc_e_u, yclc_e_u)),
                                  N=self.__discreteness).T.tolist()
         xd, yd = bernstein_curve(((xclc_i_d, yclc_i_d), (xcl_d, ycl_d), (xclc_e_d, yclc_e_d)),
                                  N=self.__discreteness).T.tolist()
-        self.coords['u']['x'] += xu
-        self.coords['u']['y'] += yu
-        self.coords['l']['x'] += xd
-        self.coords['l']['y'] += yd
+        coordinates['u']['x'] += xu
+        coordinates['u']['y'] += yu
+        coordinates['l']['x'] += xd
+        coordinates['l']['y'] += yd
 
         # точки выходной окружности кромки по спинке
         an = angle(points=((1, self.__O_outlet[1]), self.__O_outlet, (xclc_e_u, yclc_e_u)))
         if self.__O_outlet[0] > xclc_e_u: an = pi - an
         # уменьшение угла для предотвращения дублирования координат
         angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
-        self.coords['u']['x'] += (1 - self.r_outlet_b * (1 - cos(angles))).tolist()[::-1]
-        self.coords['u']['y'] += (self.__O_outlet[1] + self.r_outlet_b * sin(angles)).tolist()[::-1]
+        coordinates['u']['x'] += (1 - self.relative_outlet_radius * (1 - cos(angles))).tolist()[::-1]
+        coordinates['u']['y'] += (self.__O_outlet[1] + self.relative_outlet_radius * sin(angles)).tolist()[::-1]
 
         # точки выходной окружности кромки по корыту
         an = angle(points=((1, self.__O_outlet[1]), self.__O_outlet, (xclc_e_d, yclc_e_d)))
         if self.__O_outlet[0] > xclc_e_d: an = pi - an
         # уменьшение угла для предотвращения дублирования координат
         angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
-        self.coords['l']['x'] += (1 - self.r_outlet_b * (1 - cos(angles))).tolist()[::-1]
-        self.coords['l']['y'] += (self.__O_outlet[1] - self.r_outlet_b * sin(angles)).tolist()[::-1]
+        coordinates['l']['x'] += (1 - self.relative_outlet_radius * (1 - cos(angles))).tolist()[::-1]
+        coordinates['l']['y'] += (self.__O_outlet[1] - self.relative_outlet_radius * sin(angles)).tolist()[::-1]
+
+        return coordinates
 
     def __naca(self, closed=True) -> None:
         i = arange(self.__N)
@@ -446,41 +452,45 @@ class Airfoil:
 
         sin_tetta, cos_tetta = sin(tetta), cos(tetta)  # предварительный расчет для ускорения работы
 
-        self.coords['u']['x'], self.coords['u']['y'] = x - yc * sin_tetta, yf + yc * cos_tetta
-        self.coords['l']['x'], self.coords['l']['y'] = x + yc * sin_tetta, yf - yc * cos_tetta
+        self.coordinates['u']['x'], self.coordinates['u']['y'] = x - yc * sin_tetta, yf + yc * cos_tetta
+        self.coordinates['l']['x'], self.coordinates['l']['y'] = x + yc * sin_tetta, yf - yc * cos_tetta
 
-        x_min = min(np.min(self.coords['u']['x']), np.min(self.coords['l']['x']))
-        x_max = max(np.max(self.coords['u']['x']), np.max(self.coords['l']['x']))
+        x_min = min(np.min(self.coordinates['u']['x']), np.min(self.coordinates['l']['x']))
+        x_max = max(np.max(self.coordinates['u']['x']), np.max(self.coordinates['l']['x']))
         scale = abs(x_max - x_min)
         self.transform(x0=x_min, scale=1 / scale, inplace=True)
 
         # отсечка значений спинки корыту и наоборот
-        Xu = (self.coords['u']['x'][self.coords['u']['x'].index(min(self.coords['u']['x'])):] +
-              list(reversed(self.coords['l']['x'][
-                            self.coords['l']['x'].index(max(self.coords['l']['x'])):len(self.coords['l']['x']) - 1])))
-        Yu = (self.coords['u']['y'][self.coords['u']['x'].index(min(self.coords['u']['x'])):] +
-              list(reversed(self.coords['l']['y'][
-                            self.coords['l']['x'].index(max(self.coords['l']['x'])):len(self.coords['l']['x']) - 1])))
-        Xd = list(reversed(self.coords['u']['x'][1:self.coords['u']['x'].index(min(self.coords['u']['x'])) + 1])) + \
-             self.coords['l']['x'][:self.coords['l']['x'].index(max(self.coords['l']['x'])) + 1]
-        Yd = list(reversed(self.coords['u']['y'][1:self.coords['u']['x'].index(min(self.coords['u']['x'])) + 1])) + \
-             self.coords['l']['y'][:self.coords['l']['x'].index(max(self.coords['l']['x'])) + 1]
+        Xu = (self.coordinates['u']['x'][self.coordinates['u']['x'].index(min(self.coordinates['u']['x'])):] +
+              list(reversed(self.coordinates['l']['x'][
+                            self.coordinates['l']['x'].index(max(self.coordinates['l']['x'])):len(
+                                self.coordinates['l']['x']) - 1])))
+        Yu = (self.coordinates['u']['y'][self.coordinates['u']['x'].index(min(self.coordinates['u']['x'])):] +
+              list(reversed(self.coordinates['l']['y'][
+                            self.coordinates['l']['x'].index(max(self.coordinates['l']['x'])):len(
+                                self.coordinates['l']['x']) - 1])))
+        Xd = list(reversed(
+            self.coordinates['u']['x'][1:self.coordinates['u']['x'].index(min(self.coordinates['u']['x'])) + 1])) + \
+             self.coordinates['l']['x'][:self.coordinates['l']['x'].index(max(self.coordinates['l']['x'])) + 1]
+        Yd = list(reversed(
+            self.coordinates['u']['y'][1:self.coordinates['u']['x'].index(min(self.coordinates['u']['x'])) + 1])) + \
+             self.coordinates['l']['y'][:self.coordinates['l']['x'].index(max(self.coordinates['l']['x'])) + 1]
 
-        self.coords['u']['x'], self.coords['u']['y'] = Xu, Yu
-        self.coords['l']['x'], self.coords['l']['y'] = Xd, Yd
+        self.coordinates['u']['x'], self.coordinates['u']['y'] = Xu, Yu
+        self.coordinates['l']['x'], self.coordinates['l']['y'] = Xd, Yd
 
         self.find_circles()
 
     def __mynk(self) -> None:
         x = linspace(0, 1, self.__N)
-        self.coords['u']['x'] = x
-        self.coords['u']['y'] = self.h * (0.25 * (-x - 17 * x ** 2 - 6 * x ** 3) + x ** 0.87 * (1 - x) ** 0.56)
-        self.coords['l']['x'] = x
-        self.coords['l']['y'] = self.h * (0.25 * (-x - 17 * x ** 2 - 6 * x ** 3) - x ** 0.87 * (1 - x) ** 0.56)
+        self.coordinates['u']['x'] = x
+        self.coordinates['u']['y'] = self.h * (0.25 * (-x - 17 * x ** 2 - 6 * x ** 3) + x ** 0.87 * (1 - x) ** 0.56)
+        self.coordinates['l']['x'] = x
+        self.coordinates['l']['y'] = self.h * (0.25 * (-x - 17 * x ** 2 - 6 * x ** 3) - x ** 0.87 * (1 - x) ** 0.56)
 
-        angle = atan((self.coords['u']['y'][-1] - self.coords['u']['y'][0]) / (1 - 0))
-        scale = dist((self.coords['u']['x'][0], self.coords['u']['y'][0]),
-                     (self.coords['u']['x'][-1], self.coords['u']['y'][-1]))
+        angle = atan((self.coordinates['u']['y'][-1] - self.coordinates['u']['y'][0]) / (1 - 0))
+        scale = dist((self.coordinates['u']['x'][0], self.coordinates['u']['y'][0]),
+                     (self.coordinates['u']['x'][-1], self.coordinates['u']['y'][-1]))
         self.transform(angle=angle, scale=1 / scale, inplace=True)
 
         self.find_circles()
@@ -530,42 +540,50 @@ class Airfoil:
         """
 
         # поверхностные коэффициенты давления спинки и корыта
-        cf_u = self.__parsec_coefficients('u', self.r_inlet_b, self.f_b_u, self.d2y_dx2_u, (1, 0), self.theta_outlet_u)
-        cf_l = self.__parsec_coefficients('l', self.r_inlet_b, self.f_b_l, self.d2y_dx2_l, (1, 0), self.theta_outlet_l)
+        cf_u = self.__parsec_coefficients('u', self.relative_inlet_radius, self.f_b_u, self.d2y_dx2_u, (1, 0),
+                                          self.theta_outlet_u)
+        cf_l = self.__parsec_coefficients('l', self.relative_inlet_radius, self.f_b_l, self.d2y_dx2_l, (1, 0),
+                                          self.theta_outlet_l)
 
-        self.coords['u']['x'] = linspace(0, 1, self.__N)
-        self.coords['u']['y'] = sum([cf_u[i] * self.coords['u']['x'] ** (i + 0.5) for i in range(6)])
-        self.coords['l']['x'] = linspace(1, 0, self.__N)
-        self.coords['l']['y'] = sum([cf_l[i] * self.coords['l']['x'] ** (i + 0.5) for i in range(6)])
-        self.coords['l']['x'], self.coords['l']['y'] = self.coords['l']['x'][::-1], self.coords['l']['y'][::-1]
+        self.coordinates['u']['x'] = linspace(0, 1, self.__N)
+        self.coordinates['u']['y'] = sum([cf_u[i] * self.coordinates['u']['x'] ** (i + 0.5) for i in range(6)])
+        self.coordinates['l']['x'] = linspace(1, 0, self.__N)
+        self.coordinates['l']['y'] = sum([cf_l[i] * self.coordinates['l']['x'] ** (i + 0.5) for i in range(6)])
+        self.coordinates['l']['x'], self.coordinates['l']['y'] = self.coordinates['l']['x'][::-1], \
+            self.coordinates['l']['y'][::-1]
 
-        self.__O_inlet, self.r_inlet_b = (0, 0), 0
-        self.__O_outlet, self.r_outlet_b = (1, 0), 0
+        self.__O_inlet, self.relative_inlet_radius = (0, 0), 0
+        self.__O_outlet, self.relative_outlet_radius = (1, 0), 0
 
     def __bezier(self) -> None:
         if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
         if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
 
-        self.coords['u']['x'], self.coords['u']['y'] = bernstein_curve(self.u, N=self.__N).T
-        self.coords['l']['x'], self.coords['l']['y'] = bernstein_curve(self.l, N=self.__N).T
+        self.coordinates['u']['x'], self.coordinates['u']['y'] = bernstein_curve(self.u, N=self.__N).T
+        self.coordinates['l']['x'], self.coordinates['l']['y'] = bernstein_curve(self.l, N=self.__N).T
 
-        self.__O_inlet, self.r_inlet_b = (0, 0), 0
-        self.__O_outlet, self.r_outlet_b = (1, 0), 0
+        self.__O_inlet, self.relative_inlet_radius = (0, 0), 0
+        self.__O_outlet, self.relative_outlet_radius = (1, 0), 0
 
     def __manual(self) -> None:
         if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
         if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
 
         x = linspace(0, 1, self.__N)
-        self.coords['u']['x'], self.coords['u']['y'] = x, interpolate.interp1d([p[0] for p in self.u],
-                                                                               [p[1] for p in self.u],
-                                                                               kind=self.deg)(x)
-        self.coords['l']['x'], self.coords['l']['y'] = x, interpolate.interp1d([p[0] for p in self.l],
-                                                                               [p[1] for p in self.l],
-                                                                               kind=self.deg)(x)
+        self.coordinates['u']['x'], self.coordinates['u']['y'] = x, interpolate.interp1d([p[0] for p in self.u],
+                                                                                         [p[1] for p in self.u],
+                                                                                         kind=self.deg)(x)
+        self.coordinates['l']['x'], self.coordinates['l']['y'] = x, interpolate.interp1d([p[0] for p in self.l],
+                                                                                         [p[1] for p in self.l],
+                                                                                         kind=self.deg)(x)
 
-        self.__O_inlet, self.r_inlet_b = (0, 0), 0
-        self.__O_outlet, self.r_outlet_b = (1, 0), 0
+        self.__O_inlet, self.relative_inlet_radius = (0, 0), 0
+        self.__O_outlet, self.relative_outlet_radius = (1, 0), 0
+
+    @property
+    def is_fitted(self) -> bool:
+        """Проверка на выполненный расчет"""
+        return all((self.__coordinates, self.__properties, self.__channel))
 
     @timeit()
     def __calculate(self):
@@ -574,19 +592,19 @@ class Airfoil:
         self.validate()
 
         if self.method in Airfoil.__methods['NACA']['aliases']:
-            self.__naca()
+            self.__coordinates0 = self.__naca()
         elif self.method in Airfoil.__methods['BMSTU']['aliases']:
-            self.__bmstu()
+            self.__coordinates0 = self.__bmstu()
         elif self.method in Airfoil.__methods['MYNK']['aliases']:
-            self.__mynk()
+            self.__coordinates0 = self.__mynk()
         elif self.method in Airfoil.__methods['PARSEC']['aliases']:
-            self.__parsec()
+            self.__coordinates0 = self.__parsec()
         elif self.method in Airfoil.__methods['BEZIER']['aliases']:
-            self.__bezier()
+            self.__coordinates0 = self.__bezier()
         elif self.method in Airfoil.__methods['MANUAL']['aliases']:
-            self.__manual()
+            self.__coordinates0 = self.__manual()
         else:
-            print(Fore.RED + f'No such method {self.method}! Use Airfoil.hepl' + Fore.RESET)
+            print(Fore.RED + f'No such method {self.method}! Use Airfoil.help' + Fore.RESET)
 
         dct = self.transform(self.properties['x0'], self.properties['y0'],
                              self.__gamma, scale=1, inplace=False)
@@ -605,38 +623,33 @@ class Airfoil:
             XdGt = list(reversed(XuG[1:XuG.index(min(XuG)) + 1])) + XdG[:XdG.index(max(XdG)) + 1]
             YdGt = list(reversed(YuG[1:XuG.index(min(XuG)) + 1])) + YdG[:XdG.index(max(XdG)) + 1]
 
-        self.coords['u']['x'], self.coords['u']['y'] = XuGt, YuGt
-        self.coords['l']['x'], self.coords['l']['y'] = XdGt, YdGt
+        self.coordinates['u']['x'], self.coordinates['u']['y'] = XuGt, YuGt
+        self.coordinates['l']['x'], self.coordinates['l']['y'] = XdGt, YdGt
 
-        x_min = min(np.min(self.coords['u']['x']), np.min(self.coords['l']['x']))
-        x_max = max(np.max(self.coords['u']['x']), np.max(self.coords['l']['x']))
+        x_min = min(np.min(self.coordinates['u']['x']), np.min(self.coordinates['l']['x']))
+        x_max = max(np.max(self.coordinates['u']['x']), np.max(self.coordinates['l']['x']))
         scale = abs(x_max - x_min)
         self.transform(x0=x_min, scale=1 / scale, inplace=True)
 
-        return self.coords
-
-    @property
-    def is_fitted(self) -> bool:
-        """Проверка на выполненный расчет"""
-        return all((self.__coordinates, self.__properties, self.__channel))
+        return self.coordinates
 
     def transform(self, x0=0.0, y0=0.0, angle=0.0, scale=1.0, inplace: bool = False) -> dict[str: dict]:
         """Перенос-поворот кривых спинки и корыта профиля"""
 
-        xun, yun = [nan] * len(self.coords['u']['x']), [nan] * len(self.coords['u']['x'])
-        xdn, ydn = [nan] * len(self.coords['l']['x']), [nan] * len(self.coords['l']['x'])
+        xun, yun = [nan] * len(self.coordinates['u']['x']), [nan] * len(self.coordinates['u']['x'])
+        xdn, ydn = [nan] * len(self.coordinates['l']['x']), [nan] * len(self.coordinates['l']['x'])
 
-        for i in range(len(self.coords['u']['x'])):
-            xun[i], yun[i] = Axis.transform(self.coords['u']['x'][i], self.coords['u']['y'][i],
+        for i in range(len(self.coordinates['u']['x'])):
+            xun[i], yun[i] = Axis.transform(self.coordinates['u']['x'][i], self.coordinates['u']['y'][i],
                                             x0, y0, angle, scale)
 
-        for i in range(len(self.coords['l']['x'])):
-            xdn[i], ydn[i] = Axis.transform(self.coords['l']['x'][i], self.coords['l']['y'][i],
+        for i in range(len(self.coordinates['l']['x'])):
+            xdn[i], ydn[i] = Axis.transform(self.coordinates['l']['x'][i], self.coordinates['l']['y'][i],
                                             x0, y0, angle, scale)
 
         if inplace:
-            self.coords['u']['x'], self.coords['u']['y'] = xun, yun
-            self.coords['l']['x'], self.coords['l']['y'] = xdn, ydn
+            self.coordinates['u']['x'], self.coordinates['u']['y'] = xun, yun
+            self.coordinates['l']['x'], self.coordinates['l']['y'] = xdn, ydn
 
         return {'u': {'x': xun, 'y': yun},
                 'l': {'x': xdn, 'y': ydn}}
@@ -644,11 +657,11 @@ class Airfoil:
     def find_circles(self) -> dict:
         """Поиск радиусов окружностей входной и выходной кромок"""
         if all(hasattr(self, attr) for attr in ['_Airfoil__O_inlet', 'r_inlet_b', '_Airfoil__O_outlet', 'r_outlet_b']):
-            return {'inlet': {'O': self.__O_inlet, 'r': self.r_inlet_b},
-                    'outlet': {'O': self.__O_outlet, 'r': self.r_outlet_b}}
+            return {'inlet': {'O': self.__O_inlet, 'r': self.relative_inlet_radius},
+                    'outlet': {'O': self.__O_outlet, 'r': self.relative_outlet_radius}}
 
-        Fu = interpolate.interp1d(*self.coords['u'].values(), kind='cubic', fill_value='extrapolate')
-        Fd = interpolate.interp1d(*self.coords['l'].values(), kind='cubic', fill_value='extrapolate')
+        Fu = interpolate.interp1d(*self.coordinates['u'].values(), kind='cubic', fill_value='extrapolate')
+        Fd = interpolate.interp1d(*self.coordinates['l'].values(), kind='cubic', fill_value='extrapolate')
 
         dx = 0.000_1
 
@@ -677,11 +690,11 @@ class Airfoil:
         # центры входной и выходной окружностей
         if not hasattr(self, '_Airfoil__O_inlet'): self.__O_inlet = COOR(AA0u, CC0u, AA0d, CC0d)
         if not hasattr(self, '_Airfoil__O_outlet'): self.__O_outlet = COOR(AA1u, CC1u, AA1d, CC1d)
-        if not hasattr(self, 'r_inlet_b'): self.r_inlet_b = abs(self.__O_inlet[0] - x0)
-        if not hasattr(self, 'r_outlet_b'): self.r_outlet_b = abs(self.__O_outlet[0] - x1)
+        if not hasattr(self, 'r_inlet_b'): self.relative_inlet_radius = abs(self.__O_inlet[0] - x0)
+        if not hasattr(self, 'r_outlet_b'): self.relative_outlet_radius = abs(self.__O_outlet[0] - x1)
 
-        return {'inlet': {'O': self.__O_inlet, 'r': self.r_inlet_b},
-                'outlet': {'O': self.__O_outlet, 'r': self.r_outlet_b}}
+        return {'inlet': {'O': self.__O_inlet, 'r': self.relative_inlet_radius},
+                'outlet': {'O': self.__O_outlet, 'r': self.relative_outlet_radius}}
 
     def show(self, figsize=(12, 8), savefig=False):
         """Построение профиля"""
@@ -713,13 +726,13 @@ class Airfoil:
         plt.grid(True)  # сетка
         plt.axis('equal')
         plt.xlim([0, 1])
-        plt.plot(self.coords['u']['x'], self.coords['u']['y'], ls='-', color='blue', linewidth=2)
-        plt.plot(self.coords['l']['x'], self.coords['l']['y'], ls='-', color='red', linewidth=2)
+        plt.plot(self.__coordinates0['u']['x'], self.__coordinates0['u']['y'], ls='-', color='blue', linewidth=2)
+        plt.plot(self.__coordinates0['l']['x'], self.__coordinates0['l']['y'], ls='-', color='red', linewidth=2)
         alpha = linspace(0, 2 * pi, 360)
-        x_inlet = self.r_inlet_b * cos(alpha) + self.__O_inlet[0]
-        y_inlet = self.r_inlet_b * sin(alpha) + self.__O_inlet[1]
-        x_outlet = self.r_outlet_b * cos(alpha) + self.__O_outlet[0]
-        y_outlet = self.r_outlet_b * sin(alpha) + self.__O_outlet[1]
+        x_inlet = self.relative_inlet_radius * cos(alpha) + self.__O_inlet[0]
+        y_inlet = self.relative_inlet_radius * sin(alpha) + self.__O_inlet[1]
+        x_outlet = self.relative_outlet_radius * cos(alpha) + self.__O_outlet[0]
+        y_outlet = self.relative_outlet_radius * sin(alpha) + self.__O_outlet[1]
         plt.plot(x_inlet, y_inlet, ls='-', color='black', linewidth=1)
         plt.plot(x_outlet, y_outlet, ls='-', color='black', linewidth=1)
 
@@ -728,44 +741,21 @@ class Airfoil:
         plt.grid(True)  # сетка
         plt.axis('equal')
         plt.xlim([0, 1])
-        plt.plot(self.coords['u']['x'], self.coords['u']['y'], ls='-', color='black', linewidth=2)
-        plt.plot(self.coords['l']['x'], self.coords['l']['y'], ls='-', color='black', linewidth=2)
+        plt.plot(self.coordinates['u']['x'], self.coordinates['u']['y'], ls='-', color='black', linewidth=2)
+        plt.plot(self.coordinates['l']['x'], self.coordinates['l']['y'], ls='-', color='black', linewidth=2)
 
         if savefig:
             export2(plt, file_path='exports/airfoil', file_name='airfoil', file_extension='png', show_time=False)
         plt.tight_layout()
         plt.show()
 
-    def to_array(self, duplicates: bool = True):
-        """Перевод координат в массив обхода против часовой стрелки считая с выходной кромки"""
-        assert isinstance(duplicates, bool)
-        if duplicates:
-            return array((self.coords['u']['x'][::-1] + self.coords['l']['x'],
-                          self.coords['u']['y'][::-1] + self.coords['l']['y']),
-                         dtype='float64').T
-        else:
-            return array((self.coords['u']['x'][::-1] + self.coords['l']['x'][1::],
-                          self.coords['u']['y'][::-1] + self.coords['l']['y'][1::]),
-                         dtype='float64').T
-
-    def to_dataframe(self, bears: str = 'pandas'):
-        if bears.strip().lower() == 'pandas':
-            return pd.DataFrame({'xu': pd.Series(self.coords['u']['x']), 'yu': pd.Series(self.coords['u']['y']),
-                                 'xd': pd.Series(self.coords['l']['x']), 'yd': pd.Series(self.coords['l']['y'])})
-        if bears.strip().lower() == 'polars':
-            return pl.concat([pl.DataFrame({'xu': self.coords['u']['x'], 'yu': self.coords['u']['y']}),
-                              pl.DataFrame({'xl': self.coords['l']['x'], 'yl': self.coords['l']['y']})],
-                             how='horizontal')
-        print(Fore.RED + 'Unknown bears!' + Fore.RESET)
-        print('Use "pandas" or "polars"!')
-
     @property
     @timeit()
     def properties(self, epsrel: float = 1e-4) -> dict[str: float]:
         if self.__properties: return self.__properties
 
-        Yu = interpolate.interp1d(*self.coords['u'].values(), kind='cubic', fill_value='extrapolate')
-        Yl = interpolate.interp1d(*self.coords['l'].values(), kind='cubic', fill_value='extrapolate')
+        Yu = interpolate.interp1d(*self.coordinates['u'].values(), kind='cubic', fill_value='extrapolate')
+        Yl = interpolate.interp1d(*self.coordinates['l'].values(), kind='cubic', fill_value='extrapolate')
 
         self.__properties['a_b'] = integrate.dblquad(lambda _, __: 1, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
                                                      epsrel=epsrel)[0]
@@ -804,6 +794,30 @@ class Airfoil:
                                                     epsrel=epsrel)[0]
 
         return self.__properties
+
+    def to_array(self, duplicates: bool = True):
+        """Перевод координат в массив обхода против часовой стрелки считая с выходной кромки"""
+        assert isinstance(duplicates, bool)
+        if duplicates:
+            return array((self.coordinates['u']['x'][::-1] + self.coordinates['l']['x'],
+                          self.coordinates['u']['y'][::-1] + self.coordinates['l']['y']),
+                         dtype='float64').T
+        else:
+            return array((self.coordinates['u']['x'][::-1] + self.coordinates['l']['x'][1::],
+                          self.coordinates['u']['y'][::-1] + self.coordinates['l']['y'][1::]),
+                         dtype='float64').T
+
+    def to_dataframe(self, bears: str = 'pandas'):
+        if bears.strip().lower() == 'pandas':
+            return pd.DataFrame(
+                {'xu': pd.Series(self.coordinates['u']['x']), 'yu': pd.Series(self.coordinates['u']['y']),
+                 'xd': pd.Series(self.coordinates['l']['x']), 'yd': pd.Series(self.coordinates['l']['y'])})
+        if bears.strip().lower() == 'polars':
+            return pl.concat([pl.DataFrame({'xu': self.coordinates['u']['x'], 'yu': self.coordinates['u']['y']}),
+                              pl.DataFrame({'xl': self.coordinates['l']['x'], 'yl': self.coordinates['l']['y']})],
+                             how='horizontal')
+        print(Fore.RED + 'Unknown bears!' + Fore.RESET)
+        print('Use "pandas" or "polars"!')
 
     def export(self, file_path='exports/airfoil', file_name='airfoil', file_extension='xlsx',
                show_time=True, header=True):
@@ -914,15 +928,17 @@ class Airfoil:
         if self.__channel: return self.__channel
 
         # kind='cubic' необходим для гладкости производной
-        Fd = interpolate.interp1d(self.coords['l']['x'], [y + self.__t_b / 2 for y in self.coords['l']['y']], kind=3,
+        Fd = interpolate.interp1d(self.coordinates['l']['x'], [y + self.__t_b / 2 for y in self.coordinates['l']['y']],
+                                  kind=3,
                                   fill_value='extrapolate')
-        Fu = interpolate.interp1d(self.coords['u']['x'], [y - self.__t_b / 2 for y in self.coords['u']['y']], kind=3,
+        Fu = interpolate.interp1d(self.coordinates['u']['x'], [y - self.__t_b / 2 for y in self.coordinates['u']['y']],
+                                  kind=3,
                                   fill_value='extrapolate')
 
-        xgmin = min(self.coords['u']['x'] + self.coords['l']['x']) + self.r_inlet_b
-        ygmin = min(self.coords['l']['y']) - self.__t_b / 2
-        xgmax = max(self.coords['u']['x'] + self.coords['l']['x']) - self.r_outlet_b
-        ygmax = max(self.coords['u']['y']) + self.__t_b / 2
+        xgmin = min(self.coordinates['u']['x'] + self.coordinates['l']['x']) + self.relative_inlet_radius
+        ygmin = min(self.coordinates['l']['y']) - self.__t_b / 2
+        xgmax = max(self.coordinates['u']['x'] + self.coordinates['l']['x']) - self.relative_outlet_radius
+        ygmax = max(self.coordinates['u']['y']) + self.__t_b / 2
 
         # длина кривой
         l = integrate.quad(lambda x: sqrt(1 + derivative(Fd, x) ** 2), xgmin, xgmax, limit=self.__N ** 2)[0]
@@ -984,11 +1000,11 @@ class Airfoil:
         plt.title('Lattice')
         plt.grid(True)
         plt.axis('square')
-        plt.xlim(floor(min(self.coords['u']['x'] + self.coords['l']['x'])),
-                 ceil(max(self.coords['u']['x'] + self.coords['l']['x'])))
+        plt.xlim(floor(min(self.coordinates['u']['x'] + self.coordinates['l']['x'])),
+                 ceil(max(self.coordinates['u']['x'] + self.coordinates['l']['x'])))
         plt.ylim(-1, 1)
-        plt.plot([min(self.coords['u']['x'] + self.coords['l']['x'])] * 2, [-1, 1],
-                 [max(self.coords['u']['x'] + self.coords['l']['x'])] * 2, [-1, 1],
+        plt.plot([min(self.coordinates['u']['x'] + self.coordinates['l']['x'])] * 2, [-1, 1],
+                 [max(self.coordinates['u']['x'] + self.coordinates['l']['x'])] * 2, [-1, 1],
                  ls='-', color='black')  # границы решетки
         for i in range(len(self.d)):
             plt.plot(list(self.d[i] / 2 * cos(alpha) + self.xd[i] for alpha in linspace(0, 2 * pi, 360)),
@@ -996,13 +1012,13 @@ class Airfoil:
                      ls='solid', color='green')
         plt.plot(self.xd, self.yd, ls='dashdot', color='orange',
                  label=f'gamma = {self.__gamma:.4f} [rad] = {degrees(self.__gamma):.4f} [deg]')
-        plt.plot(self.coords['u']['x'], list(y - self.__t_b / 2 for y in self.coords['u']['y']),
+        plt.plot(self.coordinates['u']['x'], list(y - self.__t_b / 2 for y in self.coordinates['u']['y']),
                  ls='-', color='black', label=f't/b = {self.__t_b:.4f}')
-        plt.plot(self.coords['l']['x'], list(y - self.__t_b / 2 for y in self.coords['l']['y']),
+        plt.plot(self.coordinates['l']['x'], list(y - self.__t_b / 2 for y in self.coordinates['l']['y']),
                  ls='-', color='black')
-        plt.plot(self.coords['u']['x'], list(y + self.__t_b / 2 for y in self.coords['u']['y']),
+        plt.plot(self.coordinates['u']['x'], list(y + self.__t_b / 2 for y in self.coordinates['u']['y']),
                  ls='-', color='black')
-        plt.plot(self.coords['l']['x'], list(y + self.__t_b / 2 for y in self.coords['l']['y']),
+        plt.plot(self.coordinates['l']['x'], list(y + self.__t_b / 2 for y in self.coordinates['l']['y']),
                  ls='-', color='black')
         plt.legend(fontsize=12)
 
@@ -1037,7 +1053,7 @@ def test() -> None:
         airfoils[-1].relative_inlet_radius, airfoils[-1].relative_outlet_radius = 0.06, 0.03
         airfoils[-1].inlet_angle, airfoils[-1].outlet_angle = radians(20), radians(10)
         airfoils[-1].x_ray_cross = 0.4
-        airfoils[-1].g_ = 0.5
+        airfoils[-1].upper_proximity = 0.5
 
     if 1:
         airfoils.append(Airfoil('NACA', 40, 1 / 1.698, radians(46.23)))
@@ -1054,7 +1070,7 @@ def test() -> None:
     if 1:
         airfoils.append(Airfoil('PARSEC', 30, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].r_inlet_b = 0.01
+        airfoils[-1].relative_inlet_radius = 0.01
         airfoils[-1].f_b_u, airfoils[-1].f_b_l = (0.35, 0.055), (0.45, -0.006)
         airfoils[-1].d2y_dx2_u, airfoils[-1].d2y_dx2_l = -0.35, -0.2
         airfoils[-1].theta_outlet_u, airfoils[-1].theta_outlet_l = radians(-6), radians(0.05)
