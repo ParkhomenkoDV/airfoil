@@ -34,75 +34,93 @@ class Airfoil:
     rnd = 4  # количество значащих цифр
     __discreteness = 30  # рекомендуемое количество дискретных точек
     # TODO
-    __methods = {'BMSTU': {'description': '',
-                           'aliases': ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'),
-                           'attributes': {
-                               'rotation_angle': {
-                                   'description': 'угол поворота потока',
-                                   'unit': '[rad]',
-                                   'bounds': (0, radians(180)),
-                                   'assert': ''},
-                               'relative_inlet_radius': {
-                                   'description': 'относительный радиус входной кромки',
-                                   'unit': '[]',
-                                   'bounds': (0, 1)},
-                               'relative_outlet_radius': {
-                                   'description': 'относительный радиус выходной кромки',
-                                   'unit': '[]',
-                                   'bounds': (0, 1)},
-                               'inlet_angle': {
-                                   'description': 'угол раскрытия входной кромки',
-                                   'unit': '[rad]',
-                                   'bounds': (0, 1)},
-                               'outlet_angle': {
-                                   'description': 'угол раскрытия выходной кромки',
-                                   'unit': '[rad]',
-                                   'bounds': (0, 1)},
-                               'x_ray_cross': {
-                                   'description': 'относительная координата х пересечения входного и выходного лучей',
-                                   'unit': '[]',
-                                   'bounds': (0, 1)},
-                               'upper_proximity': {
-                                   'description': 'степень приближенности к спинке',
-                                   'unit': '[]',
-                                   'bounds': (0, 1)}}},
-                 'NACA': {'description': '',
-                          'aliases': ('NACA', 'N.A.C.A.'),
-                          'attributes': {
-                              'relative_thickness': {
-                                  'description': 'максимальная относительная толщина',
-                                  'unit': '[]',
-                                  'bounds': (0, 1)},
-                              'x_relative_camber': {
-                                  'description': 'относительна координата х максимальной выпуклости',
-                                  'unit': '[]',
-                                  'bounds': (0, 1)},
-                              'relative_camber': {
-                                  'description': 'относительная максимальная выпуклость',
-                                  'unit': '[]',
-                                  'bounds': (0, 1)}}},
-                 'MYNK': {'description': '',
-                          'aliases': ('MYNK', 'МУНК'),
-                          'attributes': {
-                              'mynk_coefficient': {
-                                  'description': 'коэффициент Мунка',
-                                  'unit': '[]',
-                                  'bounds': (0, 1)}}},
-                 'PARSEC': {'description': '',
-                            'aliases': ('PARSEC',),
-                            'attributes': {}},
-                 'BEZIER': {'description': '',
-                            'aliases': ('BEZIER', 'БЕЗЬЕ'),
-                            'attributes': {}},
-                 'MANUAL': {'description': '',
-                            'aliases': ('MANUAL', 'ВРУЧНУЮ'),
-                            'attributes': {}}, }
+    __methods = {
+        'BMSTU': {
+            'description': '',
+            'aliases': ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'),
+            'attributes': {
+                'rotation_angle': {
+                    'description': 'угол поворота потока',
+                    'unit': '[rad]',
+                    'bounds': f'(0, {radians(180)}]',
+                    'type': (int, float, np.number)},
+                'relative_inlet_radius': {
+                    'description': 'относительный радиус входной кромки',
+                    'unit': '[]',
+                    'bounds': '(0, 1)',
+                    'type': (float,)},
+                'relative_outlet_radius': {
+                    'description': 'относительный радиус выходной кромки',
+                    'unit': '[]',
+                    'bounds': '(0, 1)',
+                    'type': (float,)},
+                'inlet_angle': {
+                    'description': 'угол раскрытия входной кромки',
+                    'unit': '[rad]',
+                    'bounds': '(0, _)',
+                    'type': (int, float, np.number)},
+                'outlet_angle': {
+                    'description': 'угол раскрытия выходной кромки',
+                    'unit': '[rad]',
+                    'bounds': '(0, _)',
+                    'type': (int, float, np.number)},
+                'x_ray_cross': {
+                    'description': 'относительная координата х пересечения входного и выходного лучей',
+                    'unit': '[]',
+                    'bounds': '(0, 1)',
+                    'type': (float,)},
+                'upper_proximity': {
+                    'description': 'степень приближенности к спинке',
+                    'unit': '[]',
+                    'bounds': '[0, 1]',
+                    'type': (int, float)}}},
+        'NACA': {'description': '',
+                 'aliases': ('NACA', 'N.A.C.A.'),
+                 'attributes': {
+                     'relative_thickness': {
+                         'description': 'максимальная относительная толщина',
+                         'unit': '[]',
+                         'bounds': (0, 1),
+                         'type': (int, float)},
+                     'x_relative_camber': {
+                         'description': 'относительна координата х максимальной выпуклости',
+                         'unit': '[]',
+                         'bounds': (0, 1),
+                         'type': ()},
+                     'relative_camber': {
+                         'description': 'относительная максимальная выпуклость',
+                         'unit': '[]',
+                         'bounds': (0, 1),
+                         'type': ()},
+                     'closed': {
+                         'description': 'замкнутость профиля',
+                         'unit': '[]',
+                         'bounds': (False, True),
+                         'type': (bool,)}}},
+        'MYNK': {'description': '',
+                 'aliases': ('MYNK', 'МУНК'),
+                 'attributes': {
+                     'mynk_coefficient': {
+                         'description': 'коэффициент Мунка',
+                         'unit': '[]',
+                         'bounds': (0, 1),
+                         'type': ()}}},
+        'PARSEC': {'description': '',
+                   'aliases': ('PARSEC',),
+                   'attributes': {}},
+        'BEZIER': {'description': '',
+                   'aliases': ('BEZIER', 'БЕЗЬЕ'),
+                   'attributes': {}},
+        'MANUAL': {'description': '',
+                   'aliases': ('MANUAL', 'ВРУЧНУЮ'),
+                   'attributes': {}}, }
     __relative_step = 1.0  # дефолтный относительный шаг []
     __gamma = 0.0  # дефолтный угол установки [рад]
 
     @classmethod
     def __version__(cls):
         version = '3.0'
+        print('help')
         print('Продувка')
 
     @classmethod
@@ -150,56 +168,37 @@ class Airfoil:
             assert all(isinstance(el, (int, float)) for itr in points for el in itr)  # проверка типов элементов
 
         if hasattr(self, '_Airfoil__method'):
-            if self.__method in Airfoil.__methods['BMSTU']['aliases']:
-                # относ. координата пересечения входного и выходного лучей
-                assert hasattr(self, 'x_ray_cross')
-                assert isinstance(self.x_ray_cross, (int, float))
-                assert 0 <= self.x_ray_cross <= 1
+            for attr in Airfoil.__methods[self.__method]['attributes']:
+                assert hasattr(self, attr), f'not hasattr({attr})'
+                assert isinstance(getattr(self, attr), Airfoil.__methods[self.__method]['attributes'][attr]['type']), \
+                    f'type({attr}) not in {Airfoil.__methods[self.__method]["attributes"][attr]["type"]}'
+                l, u = Airfoil.__methods[self.__method]['attributes'][attr]['bounds'].split(', ')
+                if l[1] != '_':  # есть нижняя граница
+                    if l[0] == '(':
+                        assert float(l[1:]) < getattr(self, attr), f'attribute {float(l[1:])} < {attr}'
+                    elif l[0] == '[':
+                        assert float(l[1:]) <= getattr(self, attr), f'attribute {float(l[1:])} <= {attr}'
+                if u[-2] != '_':  # есть верхняя граница
+                    if u[-1] == ')':
+                        assert getattr(self, attr) < float(u[:-1]), f'attribute {attr} < {u[:-1]}'
+                    elif u[-1] == ']':
+                        assert getattr(self, attr) <= float(u[:-1]), f'attribute {attr} <= {u[:-1]}'
 
-                # относ. радиус входной кромки
-                assert hasattr(self, 'relative_inlet_radius')
-                assert isinstance(self.relative_inlet_radius, (int, float))
-                assert 0 <= self.relative_inlet_radius <= 1
-
-                # относ. радиус выходной кромки
-                assert hasattr(self, 'relative_outlet_radius')
-                assert isinstance(self.relative_outlet_radius, (int, float))
-                assert 0 <= self.relative_outlet_radius <= 1
-
-                # степень приближенности к спинке
-                assert hasattr(self, 'upper_proximity')
-                assert isinstance(self.upper_proximity, (int, float))
-                assert 0 <= self.upper_proximity <= 1
-
-                # угол раскрытия входной кромоки
-                assert hasattr(self, 'inlet_angle')
-                assert isinstance(self.inlet_angle, (int, float, np.number))
-                assert 0 <= self.inlet_angle
-
-                # угол раскрытия выходной кромки
-                assert hasattr(self, 'outlet_angle')
-                assert isinstance(self.outlet_angle, (int, float, np.number))
-                assert 0 <= self.outlet_angle
-
-                # угол поворота потока
-                assert hasattr(self, 'rotation_angle')
-                assert isinstance(self.rotation_angle, (int, float, np.number))
-
-            elif self.__method in Airfoil.__methods['NACA']['aliases']:
-                # относ. максимальная толщина профиля
+            if self.__method in Airfoil.__methods['NACA']['aliases']:
                 assert hasattr(self, 'relative_thickness')
                 assert isinstance(self.relative_thickness, (int, float))
                 assert 0 <= self.relative_thickness <= 1
 
-                # относ. координата максимального прогиба профиля
                 assert hasattr(self, 'x_relative_camber')
                 assert isinstance(self.x_relative_camber, (int, float))
                 assert 0 <= self.x_relative_camber <= 1
 
-                # относ. максимальный прогиб профиля
                 assert hasattr(self, 'relative_camber')
                 assert isinstance(self.relative_camber, (int, float))
                 assert 0 <= self.relative_camber <= 1
+
+                assert hasattr(self, 'closed')
+                assert isinstance(self.closed, bool)
 
             elif self.__method in Airfoil.__methods['MYNK']['aliases']:
                 assert hasattr(self, 'mynk_coefficient')
@@ -460,7 +459,7 @@ class Airfoil:
 
         return coordinates
 
-    def __naca(self, closed=True) -> dict[str:dict[str:list]]:
+    def __naca(self) -> dict[str:dict[str:list]]:
         coordinates = {'u': {'x': list(), 'y': list()}, 'l': {'x': list(), 'y': list()}}  # результат
 
         i = arange(self.__discreteness)  # массив индексов
@@ -476,7 +475,7 @@ class Airfoil:
 
         gradYf = 2 * self.relative_camber
 
-        a = array((0.2969, -0.126, -0.3516, 0.2843, -0.1036 if closed else -0.1015), dtype='float64')
+        a = array((0.2969, -0.126, -0.3516, 0.2843, -0.1036 if self.closed else -0.1015), dtype='float64')
 
         yc = self.relative_thickness / 0.2 * np.dot(a, np.column_stack((sqrt(x), x, x ** 2, x ** 3, x ** 4)).T)
 
@@ -697,7 +696,6 @@ class Airfoil:
         for i, _ in enumerate(self.coordinates['u']['x']):
             xun[i], yun[i] = Axis.transform(self.coordinates['u']['x'][i], self.coordinates['u']['y'][i],
                                             x0, y0, angle, scale)
-
         for i, _ in enumerate(self.coordinates['l']['x']):
             xdn[i], ydn[i] = Axis.transform(self.coordinates['l']['x'][i], self.coordinates['l']['y'][i],
                                             x0, y0, angle, scale)
@@ -1081,7 +1079,9 @@ class Airfoil:
 
 def test() -> None:
     """Тестирование"""
-    # print(Disk.version())
+    print(Airfoil.__version__())
+
+    Airfoil.help()
 
     Airfoil.rnd = 4
 
@@ -1102,6 +1102,7 @@ def test() -> None:
         airfoils[-1].relative_thickness = 0.24
         airfoils[-1].x_relative_camber = 0.3
         airfoils[-1].relative_camber = 0.05
+        airfoils[-1].closed = True
 
     if 1:
         airfoils.append(Airfoil('MYNK', 20, 1 / 1.698, radians(46.23)))
