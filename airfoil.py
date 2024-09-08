@@ -80,22 +80,22 @@ class Airfoil:
                      'relative_thickness': {
                          'description': 'максимальная относительная толщина',
                          'unit': '[]',
-                         'bounds': (0, 1),
+                         'bounds': '[0, 1)',
                          'type': (int, float)},
                      'x_relative_camber': {
                          'description': 'относительна координата х максимальной выпуклости',
                          'unit': '[]',
-                         'bounds': (0, 1),
-                         'type': ()},
+                         'bounds': '[0, 1]',
+                         'type': (int, float)},
                      'relative_camber': {
                          'description': 'относительная максимальная выпуклость',
                          'unit': '[]',
-                         'bounds': (0, 1),
-                         'type': ()},
+                         'bounds': '[0, 1)',
+                         'type': (float,)},
                      'closed': {
                          'description': 'замкнутость профиля',
                          'unit': '[]',
-                         'bounds': (False, True),
+                         'bounds': '{False, True}',
                          'type': (bool,)}}},
         'MYNK': {'description': '',
                  'aliases': ('MYNK', 'МУНК'),
@@ -180,24 +180,11 @@ class Airfoil:
                         assert float(l[1:]) <= getattr(self, attr), f'attribute {float(l[1:])} <= {attr}'
                 if u[-2] != '_':  # есть верхняя граница
                     if u[-1] == ')':
-                        assert getattr(self, attr) < float(u[:-1]), f'attribute {attr} < {u[:-1]}'
+                        assert getattr(self, attr) < float(u[:-1]), f'attribute {attr} < {float(u[:-1])}'
                     elif u[-1] == ']':
-                        assert getattr(self, attr) <= float(u[:-1]), f'attribute {attr} <= {u[:-1]}'
+                        assert getattr(self, attr) <= float(u[:-1]), f'attribute {attr} <= {float(u[:-1])}'
 
             if self.__method in Airfoil.__methods['NACA']['aliases']:
-                assert hasattr(self, 'relative_thickness')
-                assert isinstance(self.relative_thickness, (int, float))
-                assert 0 <= self.relative_thickness <= 1
-
-                assert hasattr(self, 'x_relative_camber')
-                assert isinstance(self.x_relative_camber, (int, float))
-                assert 0 <= self.x_relative_camber <= 1
-
-                assert hasattr(self, 'relative_camber')
-                assert isinstance(self.relative_camber, (int, float))
-                assert 0 <= self.relative_camber <= 1
-
-                assert hasattr(self, 'closed')
                 assert isinstance(self.closed, bool)
 
             elif self.__method in Airfoil.__methods['MYNK']['aliases']:
@@ -681,7 +668,7 @@ class Airfoil:
         self.transform(x0=x_min, scale=1 / scale, inplace=True)
 
         self.__Fu = interpolate.interp1d(*self.coordinates['u'].values(), kind=3, fill_value='extrapolate')
-        self.__Fd = interpolate.interp1d(*self.coordinates['l'].values(), kind=3, fill_value='extrapolate')
+        self.__Fl = interpolate.interp1d(*self.coordinates['l'].values(), kind=3, fill_value='extrapolate')
 
         self.find_circles()
 
@@ -839,32 +826,39 @@ class Airfoil:
     @property
     @timeit()
     def properties(self, epsrel: float = 1e-4) -> dict[str: float]:
+        if not self.is_fitted: self.__calculate()
         if self.__properties: return self.__properties
 
-        Yu = interpolate.interp1d(*self.coordinates['u'].values(), kind=3, fill_value='extrapolate')
-        Yl = interpolate.interp1d(*self.coordinates['l'].values(), kind=3, fill_value='extrapolate')
+        self.__properties['r_inlet_b'] = self.__relative_inlet_radius
+        self.__properties['r_outlet_b'] = self.__relative_outlet_radius
 
-        self.__properties['a_b'] = integrate.dblquad(lambda _, __: 1, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
+        self.__properties['a_b'] = integrate.dblquad(lambda _, __: 1, 0, 1,
+                                                     lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
                                                      epsrel=epsrel)[0]
         self.__properties['xc_b'], self.__properties['c_b'] = -1.0, 0
         self.__properties['xf_b'], self.__properties['f_b'] = -1.0, 0
         for x in linspace(0, 1, int(ceil(1 / epsrel))):
-            if Yu(x) - Yl(x) > self.__properties['c_b']:
-                self.__properties['xc_b'], self.__properties['c_b'] = x, Yu(x) - Yl(x)
-            if abs((Yu(x) + Yl(x)) / 2) > abs(self.__properties['f_b']):
-                self.__properties['xf_b'], self.__properties['f_b'] = x, (Yu(x) + Yl(x)) / 2
-        self.__properties['Sx'] = integrate.dblquad(lambda y, _: y, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
-                                                    epsrel=epsrel)[0]
-        self.__properties['Sy'] = integrate.dblquad(lambda _, x: x, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
-                                                    epsrel=epsrel)[0]
+            if self.__Fu(x) - self.__Fl(x) > self.__properties['c_b']:
+                self.__properties['xc_b'], self.__properties['c_b'] = x, self.__Fu(x) - self.__Fl(x)
+            if abs((self.__Fu(x) + self.__Fl(x)) / 2) > abs(self.__properties['f_b']):
+                self.__properties['xf_b'], self.__properties['f_b'] = x, (self.__Fu(x) + self.__Fl(x)) / 2
+        self.__properties['Sx'] = \
+        integrate.dblquad(lambda y, _: y, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                          epsrel=epsrel)[0]
+        self.__properties['Sy'] = \
+        integrate.dblquad(lambda _, x: x, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                          epsrel=epsrel)[0]
         self.__properties['x0'] = self.__properties['Sy'] / self.__properties['a_b']
         self.__properties['y0'] = self.__properties['Sx'] / self.__properties['a_b']
-        self.__properties['Jx'] = integrate.dblquad(lambda y, _: y ** 2, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
-                                                    epsrel=epsrel)[0]
-        self.__properties['Jy'] = integrate.dblquad(lambda _, x: x ** 2, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
-                                                    epsrel=epsrel)[0]
-        self.__properties['Jxy'] = integrate.dblquad(lambda y, x: x * y, 0, 1, lambda xu: Yl(xu), lambda xd: Yu(xd),
-                                                     epsrel=epsrel)[0]
+        self.__properties['Jx'] = \
+        integrate.dblquad(lambda y, _: y ** 2, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                          epsrel=epsrel)[0]
+        self.__properties['Jy'] = \
+        integrate.dblquad(lambda _, x: x ** 2, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                          epsrel=epsrel)[0]
+        self.__properties['Jxy'] = \
+        integrate.dblquad(lambda y, x: x * y, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                          epsrel=epsrel)[0]
         self.__properties['Jxc'] = self.__properties['Jx'] - self.__properties['a_b'] * self.__properties['y0'] ** 2
         self.__properties['Jyc'] = self.__properties['Jy'] - self.__properties['a_b'] * self.__properties['x0'] ** 2
         self.__properties['Jxcyc'] = (self.__properties['Jxy'] -
@@ -875,9 +869,9 @@ class Airfoil:
             sqrt((1 - self.__properties['x0']) ** 2 + (0 - self.__properties['y0']) ** 2))
         self.__properties['alpha'] = 0.5 * atan(-2 * self.__properties['Jxcyc'] /
                                                 (self.__properties['Jxc'] - self.__properties['Jyc']))
-        self.__properties['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(Yu, x) ** 2), 0, 1,
+        self.__properties['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__Fu, x) ** 2), 0, 1,
                                                     epsrel=epsrel)[0]
-        self.__properties['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(Yl, x) ** 2), 0, 1,
+        self.__properties['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__Fl, x) ** 2), 0, 1,
                                                     epsrel=epsrel)[0]
 
         return self.__properties
