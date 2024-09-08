@@ -6,6 +6,7 @@
 
 import sys
 import warnings
+from copy import deepcopy
 from tqdm import tqdm
 from colorama import Fore
 
@@ -309,6 +310,8 @@ class Airfoil:
         pass
 
     def __bmstu(self) -> dict[str:dict[str:list]]:
+        coordinates = {'u': {'x': list(), 'y': list()}, 'l': {'x': list(), 'y': list()}}  # результат
+
         # tan угла входа и выхода потока
         k_inlet = 1 / (2 * self.x_ray_cross / (self.x_ray_cross - 1) * tan(self.rotation_angle))
         k_outlet = 1 / (2 * tan(self.rotation_angle))
@@ -329,7 +332,6 @@ class Airfoil:
 
         # углы входа и выхода профиля
         if self.rotation_angle > 0:
-
             g_u_inlet, g_d_inlet = (
                                            1 - self.upper_proximity) * self.inlet_angle, self.upper_proximity * self.inlet_angle
             g_u_outlet, g_d_outlet = (
@@ -386,8 +388,6 @@ class Airfoil:
                                   -(-1 / tan(atan(k_outlet) + g_d_outlet)) * self.__O_outlet[0] - (-1) *
                                   self.__O_outlet[1])
 
-        coordinates = {'u': {'x': list(), 'y': list()}, 'l': {'x': list(), 'y': list()}}
-
         # точки входной окружности кромки по спинке
         an = angle(points=((0, self.__O_inlet[1]), self.__O_inlet, (xclc_i_u, yclc_i_u)))
         if xclc_i_u > self.__O_inlet[0]: an = pi - an
@@ -432,8 +432,10 @@ class Airfoil:
         return coordinates
 
     def __naca(self, closed=True) -> None:
-        i = arange(self.__N)
-        betta = i * pi / (2 * (self.__N - 1))
+        coordinates = {'u': {'x': list(), 'y': list()}, 'l': {'x': list(), 'y': list()}}  # результат
+
+        i = arange(self.__discreteness)  # массив индексов
+        betta = i * pi / (2 * (self.__discreteness - 1))
         x = 1 - cos(betta)
 
         mask = (0 <= x) & (x <= self.xf_b)
@@ -452,34 +454,44 @@ class Airfoil:
 
         sin_tetta, cos_tetta = sin(tetta), cos(tetta)  # предварительный расчет для ускорения работы
 
-        self.coordinates['u']['x'], self.coordinates['u']['y'] = x - yc * sin_tetta, yf + yc * cos_tetta
-        self.coordinates['l']['x'], self.coordinates['l']['y'] = x + yc * sin_tetta, yf - yc * cos_tetta
+        coordinates['u']['x'], coordinates['u']['y'] = x - yc * sin_tetta, yf + yc * cos_tetta
+        coordinates['l']['x'], coordinates['l']['y'] = x + yc * sin_tetta, yf - yc * cos_tetta
 
-        x_min = min(np.min(self.coordinates['u']['x']), np.min(self.coordinates['l']['x']))
-        x_max = max(np.max(self.coordinates['u']['x']), np.max(self.coordinates['l']['x']))
+        x_min = min(np.min(coordinates['u']['x']), np.min(coordinates['l']['x']))
+        x_max = max(np.max(coordinates['u']['x']), np.max(coordinates['l']['x']))
         scale = abs(x_max - x_min)
-        self.transform(x0=x_min, scale=1 / scale, inplace=True)
+
+        xun, yun = [nan] * len(coordinates['u']['x']), [nan] * len(coordinates['u']['x'])
+        xdn, ydn = [nan] * len(coordinates['l']['x']), [nan] * len(coordinates['l']['x'])
+
+        for i, _ in enumerate(coordinates['u']['x']):
+            xun[i], yun[i] = Axis.transform(coordinates['u']['x'][i], coordinates['u']['y'][i],
+                                            x0=x_min, y0=0, angle=0, scale=1 / scale)
+
+        for i, _ in enumerate(coordinates['l']['x']):
+            xdn[i], ydn[i] = Axis.transform(coordinates['l']['x'][i], coordinates['l']['y'][i],
+                                            x0=x_min, y0=0, angle=0, scale=1 / scale)
 
         # отсечка значений спинки корыту и наоборот
-        Xu = (self.coordinates['u']['x'][self.coordinates['u']['x'].index(min(self.coordinates['u']['x'])):] +
-              list(reversed(self.coordinates['l']['x'][
-                            self.coordinates['l']['x'].index(max(self.coordinates['l']['x'])):len(
-                                self.coordinates['l']['x']) - 1])))
-        Yu = (self.coordinates['u']['y'][self.coordinates['u']['x'].index(min(self.coordinates['u']['x'])):] +
-              list(reversed(self.coordinates['l']['y'][
-                            self.coordinates['l']['x'].index(max(self.coordinates['l']['x'])):len(
-                                self.coordinates['l']['x']) - 1])))
+        Xu = (coordinates['u']['x'][coordinates['u']['x'].index(min(coordinates['u']['x'])):] +
+              list(reversed(coordinates['l']['x'][
+                            coordinates['l']['x'].index(max(coordinates['l']['x'])):len(coordinates['l']['x']) - 1])))
+        Yu = (coordinates['u']['y'][coordinates['u']['x'].index(min(coordinates['u']['x'])):] +
+              list(reversed(coordinates['l']['y'][
+                            coordinates['l']['x'].index(max(coordinates['l']['x'])):len(coordinates['l']['x']) - 1])))
         Xd = list(reversed(
-            self.coordinates['u']['x'][1:self.coordinates['u']['x'].index(min(self.coordinates['u']['x'])) + 1])) + \
-             self.coordinates['l']['x'][:self.coordinates['l']['x'].index(max(self.coordinates['l']['x'])) + 1]
+            coordinates['u']['x'][1:coordinates['u']['x'].index(min(coordinates['u']['x'])) + 1])) + \
+             coordinates['l']['x'][:coordinates['l']['x'].index(max(coordinates['l']['x'])) + 1]
         Yd = list(reversed(
-            self.coordinates['u']['y'][1:self.coordinates['u']['x'].index(min(self.coordinates['u']['x'])) + 1])) + \
-             self.coordinates['l']['y'][:self.coordinates['l']['x'].index(max(self.coordinates['l']['x'])) + 1]
+            coordinates['u']['y'][1:coordinates['u']['x'].index(min(coordinates['u']['x'])) + 1])) + \
+             coordinates['l']['y'][:coordinates['l']['x'].index(max(coordinates['l']['x'])) + 1]
 
-        self.coordinates['u']['x'], self.coordinates['u']['y'] = Xu, Yu
-        self.coordinates['l']['x'], self.coordinates['l']['y'] = Xd, Yd
+        coordinates['u']['x'], coordinates['u']['y'] = Xu, Yu
+        coordinates['l']['x'], coordinates['l']['y'] = Xd, Yd
 
         self.find_circles()
+
+        return coordinates
 
     def __mynk(self) -> None:
         x = linspace(0, 1, self.__N)
@@ -606,12 +618,12 @@ class Airfoil:
         else:
             print(Fore.RED + f'No such method {self.method}! Use Airfoil.help' + Fore.RESET)
 
-        dct = self.transform(self.properties['x0'], self.properties['y0'],
-                             self.__gamma, scale=1, inplace=False)
-        XuG, YuG, XdG, YdG = dct['u']['x'], dct['u']['y'], dct['l']['x'], dct['l']['y']
-        del dct
+        self.__coordinates = deepcopy(self.__coordinates0)  # временное присваивание для совершения переноса-поворота
+        temp_dict = self.transform(x0=0, y0=0, angle=self.__gamma, scale=1, inplace=False)
+        XuG, YuG, XdG, YdG = temp_dict['u']['x'], temp_dict['u']['y'], temp_dict['l']['x'], temp_dict['l']['y']
+        del temp_dict
 
-        # отсечка значений спинки корыту и наоборот
+        # отсечка значений спинки корыту и наоборот #TODO def
         if self.__gamma >= 0:
             XuGt = list(reversed(XdG[1:XdG.index(min(XdG)) + 1])) + XuG[:XuG.index(max(XuG)) + 1]
             YuGt = list(reversed(YdG[1:XdG.index(min(XdG)) + 1])) + YuG[:XuG.index(max(XuG)) + 1]
@@ -639,11 +651,11 @@ class Airfoil:
         xun, yun = [nan] * len(self.coordinates['u']['x']), [nan] * len(self.coordinates['u']['x'])
         xdn, ydn = [nan] * len(self.coordinates['l']['x']), [nan] * len(self.coordinates['l']['x'])
 
-        for i in range(len(self.coordinates['u']['x'])):
+        for i, _ in enumerate(self.coordinates['u']['x']):
             xun[i], yun[i] = Axis.transform(self.coordinates['u']['x'][i], self.coordinates['u']['y'][i],
                                             x0, y0, angle, scale)
 
-        for i in range(len(self.coordinates['l']['x'])):
+        for i, _ in enumerate(self.coordinates['l']['x']):
             xdn[i], ydn[i] = Axis.transform(self.coordinates['l']['x'][i], self.coordinates['l']['y'][i],
                                             x0, y0, angle, scale)
 
@@ -696,12 +708,14 @@ class Airfoil:
         return {'inlet': {'O': self.__O_inlet, 'r': self.relative_inlet_radius},
                 'outlet': {'O': self.__O_outlet, 'r': self.relative_outlet_radius}}
 
-    def show(self, figsize=(12, 8), savefig=False):
+    def show(self, amount: int = 2, figsize=(12, 10), savefig=False):
         """Построение профиля"""
+        assert isinstance(amount, int) and 1 <= amount  # количество профилей
+
         if not self.is_fitted: self.__calculate()
 
         fg = plt.figure(figsize=figsize)
-        gs = fg.add_gridspec(2, 3)  # строки, столбцы
+        gs = fg.add_gridspec(nrows=2, ncols=3)
 
         fg.add_subplot(gs[0, 0])
         plt.title('Initial data')
@@ -736,13 +750,51 @@ class Airfoil:
         plt.plot(x_inlet, y_inlet, ls='-', color='black', linewidth=1)
         plt.plot(x_outlet, y_outlet, ls='-', color='black', linewidth=1)
 
+        x, y, d, r = self.channel.T
+
+        fg.add_subplot(gs[1, 1])
+        plt.title('Channel')
+        plt.grid(True)
+        plt.axis('square')
+
+        plt.xlim([0, ceil(max(r / 2))])
+        plt.ylim([0, ceil(self.__relative_step)])
+        plt.plot(r, d, ls='solid', color='green', label='channel')
+        plt.plot([0, ceil(max(r))], [0, 0], ls='solid', color=(0, 0, 0), linewidth=1.5)
+        plt.plot(list((r[i] + r[i + 1]) / 2 for i in range(len(r) - 1)),
+                 list((d[i + 1] - d[i]) / (r[i + 1] - r[i]) for i in range(len(r) - 1)),
+                 ls='solid', color='red', label='d2f/dx2')
+        plt.legend(fontsize=12)
         fg.add_subplot(gs[:, 2])
-        plt.title('Grate')
-        plt.grid(True)  # сетка
+        plt.title('Lattice')
+        plt.grid(True)
         plt.axis('equal')
         plt.xlim([0, 1])
-        plt.plot(self.coordinates['u']['x'], self.coordinates['u']['y'], ls='-', color='black', linewidth=2)
-        plt.plot(self.coordinates['l']['x'], self.coordinates['l']['y'], ls='-', color='black', linewidth=2)
+        plt.plot([min(self.coordinates['u']['x'] + self.coordinates['l']['x'])] * 2, [-1, 1],
+                 [max(self.coordinates['u']['x'] + self.coordinates['l']['x'])] * 2, [-1, 1],
+                 ls='solid', color='black')  # границы решетки
+        for n in range(amount):
+            plt.plot(array(self.coordinates['u']['x']), array(self.coordinates['u']['y']) - n * self.__relative_step,
+                     array(self.coordinates['l']['x']), array(self.coordinates['l']['y']) - n * self.__relative_step,
+                     ls='solid', color='black', linewidth=2)
+        alpha = linspace(0, 2 * pi, 360)
+        for i in range(len(d)):
+            plt.plot(list(d[i] / 2 * cos(alpha) + x[i]), list(d[i] / 2 * sin(alpha) + y[i]),
+                     ls='solid', color='green')
+
+        '''
+        plt.plot(self.xd, self.yd, ls='dashdot', color='orange',
+                 label=f'gamma = {self.__gamma:.4f} [rad] = {degrees(self.__gamma):.4f} [deg]')
+        plt.plot(self.coordinates['u']['x'], list(y - self.__t_b / 2 for y in self.coordinates['u']['y']),
+                 ls='-', color='black', label=f't/b = {self.__t_b:.4f}')
+        plt.plot(self.coordinates['l']['x'], list(y - self.__t_b / 2 for y in self.coordinates['l']['y']),
+                 ls='-', color='black')
+        plt.plot(self.coordinates['u']['x'], list(y + self.__t_b / 2 for y in self.coordinates['u']['y']),
+                 ls='-', color='black')
+        plt.plot(self.coordinates['l']['x'], list(y + self.__t_b / 2 for y in self.coordinates['l']['y']),
+                 ls='-', color='black')
+        plt.legend(fontsize=12)
+        '''
 
         if savefig:
             export2(plt, file_path='exports/airfoil', file_name='airfoil', file_extension='png', show_time=False)
@@ -794,47 +846,6 @@ class Airfoil:
                                                     epsrel=epsrel)[0]
 
         return self.__properties
-
-    def to_array(self, duplicates: bool = True):
-        """Перевод координат в массив обхода против часовой стрелки считая с выходной кромки"""
-        assert isinstance(duplicates, bool)
-        if duplicates:
-            return array((self.coordinates['u']['x'][::-1] + self.coordinates['l']['x'],
-                          self.coordinates['u']['y'][::-1] + self.coordinates['l']['y']),
-                         dtype='float64').T
-        else:
-            return array((self.coordinates['u']['x'][::-1] + self.coordinates['l']['x'][1::],
-                          self.coordinates['u']['y'][::-1] + self.coordinates['l']['y'][1::]),
-                         dtype='float64').T
-
-    def to_dataframe(self, bears: str = 'pandas'):
-        if bears.strip().lower() == 'pandas':
-            return pd.DataFrame(
-                {'xu': pd.Series(self.coordinates['u']['x']), 'yu': pd.Series(self.coordinates['u']['y']),
-                 'xd': pd.Series(self.coordinates['l']['x']), 'yd': pd.Series(self.coordinates['l']['y'])})
-        if bears.strip().lower() == 'polars':
-            return pl.concat([pl.DataFrame({'xu': self.coordinates['u']['x'], 'yu': self.coordinates['u']['y']}),
-                              pl.DataFrame({'xl': self.coordinates['l']['x'], 'yl': self.coordinates['l']['y']})],
-                             how='horizontal')
-        print(Fore.RED + 'Unknown bears!' + Fore.RESET)
-        print('Use "pandas" or "polars"!')
-
-    def export(self, file_path='exports/airfoil', file_name='airfoil', file_extension='xlsx',
-               show_time=True, header=True):
-        export2(self.to_dataframe(bears='pandas'),
-                file_path=file_path,
-                file_name=file_name,
-                file_extension=file_extension,
-                sheet_name='airfoil',
-                show_time=show_time,
-                header=header)
-        export2(pd.DataFrame(self.properties, index=[0]),
-                file_path=file_path,
-                file_name=file_name + '_properties',
-                file_extension=file_extension,
-                sheet_name=file_name + '_properties',
-                show_time=show_time,
-                header=header)
 
     '''
     @property
@@ -923,25 +934,24 @@ class Airfoil:
 
     @property
     @timeit()
-    def grate(self):
+    def channel(self) -> np.ndarray:
         """Дифузорность/конфузорность решетки"""
         if self.__channel: return self.__channel
 
         # kind='cubic' необходим для гладкости производной
-        Fd = interpolate.interp1d(self.coordinates['l']['x'], [y + self.__t_b / 2 for y in self.coordinates['l']['y']],
-                                  kind=3,
-                                  fill_value='extrapolate')
-        Fu = interpolate.interp1d(self.coordinates['u']['x'], [y - self.__t_b / 2 for y in self.coordinates['u']['y']],
-                                  kind=3,
-                                  fill_value='extrapolate')
+        Fd = interpolate.interp1d(self.coordinates['l']['x'], self.coordinates['l']['y'],
+                                  kind=3, fill_value='extrapolate')
+        Fu = interpolate.interp1d(self.coordinates['u']['x'],
+                                  [y - self.__relative_step for y in self.coordinates['u']['y']],
+                                  kind=3, fill_value='extrapolate')
 
         xgmin = min(self.coordinates['u']['x'] + self.coordinates['l']['x']) + self.relative_inlet_radius
-        ygmin = min(self.coordinates['l']['y']) - self.__t_b / 2
+        ygmin = min(self.coordinates['l']['y']) - self.__relative_step / 2
         xgmax = max(self.coordinates['u']['x'] + self.coordinates['l']['x']) - self.relative_outlet_radius
-        ygmax = max(self.coordinates['u']['y']) + self.__t_b / 2
+        ygmax = max(self.coordinates['u']['y']) + self.__relative_step / 2
 
         # длина кривой
-        l = integrate.quad(lambda x: sqrt(1 + derivative(Fd, x) ** 2), xgmin, xgmax, limit=self.__N ** 2)[0]
+        l = integrate.quad(lambda x: sqrt(1 + derivative(Fd, x) ** 2), xgmin, xgmax, limit=self.__discreteness ** 2)[0]
         step = l / self.__discreteness
 
         x = [xgmin]
@@ -965,77 +975,71 @@ class Airfoil:
                     abs(Al * x0 + (-1) * y0 + Cl) / sqrt(Al ** 2 + 1) - r0,  # расстояние от точки окружности
                     ((xl - x0) ** 2 + (Fu(xl) - y0) ** 2) - r0 ** 2]  # до кривой спинки
 
-        self.d, self.xd, self.yd = list(), list(), list()
+        xd, yd, d = list(), list(), list()
 
         warnings.filterwarnings('error')
         for xu, yu, a_u, c_u in tqdm(zip(x, Fd(x), Au, Cu), desc='Channel calculation', total=len(x)):
             try:
-                res = fsolve(equations, array((xu, yu, self.__t_b / 2, xu)), args=(xu, yu, a_u, c_u))
+                res = fsolve(equations, array((xu, yu, self.__relative_step / 2, xu)), args=(xu, yu, a_u, c_u))
             except Exception:
                 continue
 
-            if xgmin <= res[0] <= xgmax and xgmin <= res[3] <= xgmax and res[2] <= self.__t_b / 2:
-                self.d.append(res[2] * 2)
-                self.xd.append(res[0])
-                self.yd.append(res[1])
+            if all((xgmin <= res[0] <= xgmax,
+                    Fu(res[0]) < res[1] < Fd(res[0]),  # y центра окружности лежит в канале
+                    xgmin <= res[3] <= xgmax,
+                    res[2] * 2 <= self.__relative_step)):
+                xd.append(res[0])
+                yd.append(res[1])
+                d.append(res[2] * 2)
         warnings.filterwarnings('default')
 
-        self.r = np.zeros(len(self.d))
-        for i in range(1, len(self.d)):
-            self.r[i] = self.r[i - 1] + dist((self.xd[i - 1], self.yd[i - 1]), (self.xd[i], self.yd[i]))
+        r = np.zeros(len(d))
+        for i in range(1, len(d)): r[i] = r[i - 1] + dist((xd[i - 1], yd[i - 1]), (xd[i], yd[i]))
 
-        self.__channel = {tuple((self.xd[i], self.yd[i])): self.d[i] for i in range(len(self.d))}
+        self.__channel = array((xd, yd, d, r)).T
 
         return self.__channel
 
-    def show_grate(self, n: int = 2):
-        """Построение решетки"""
-        assert isinstance(n, int) and 2 <= n  # количество профилей
+    def to_array(self, duplicates: bool = True):
+        """Перевод координат в массив обхода против часовой стрелки считая с выходной кромки"""
+        assert isinstance(duplicates, bool)
+        if duplicates:
+            return array((self.coordinates['u']['x'][::-1] + self.coordinates['l']['x'],
+                          self.coordinates['u']['y'][::-1] + self.coordinates['l']['y']),
+                         dtype='float64').T
+        else:
+            return array((self.coordinates['u']['x'][::-1] + self.coordinates['l']['x'][1::],
+                          self.coordinates['u']['y'][::-1] + self.coordinates['l']['y'][1::]),
+                         dtype='float64').T
 
-        if not self.__channel: self.grate
-        fg = plt.figure(figsize=(12, 6))  # размер в дюймах
-        gs = fg.add_gridspec(1, 2)  # строки, столбца
+    def to_dataframe(self, bears: str = 'pandas'):
+        if bears.strip().lower() == 'pandas':
+            return pd.DataFrame(
+                {'xu': pd.Series(self.coordinates['u']['x']), 'yu': pd.Series(self.coordinates['u']['y']),
+                 'xd': pd.Series(self.coordinates['l']['x']), 'yd': pd.Series(self.coordinates['l']['y'])})
+        if bears.strip().lower() == 'polars':
+            return pl.concat([pl.DataFrame({'xu': self.coordinates['u']['x'], 'yu': self.coordinates['u']['y']}),
+                              pl.DataFrame({'xl': self.coordinates['l']['x'], 'yl': self.coordinates['l']['y']})],
+                             how='horizontal')
+        print(Fore.RED + 'Unknown bears!' + Fore.RESET)
+        print('Use "pandas" or "polars"!')
 
-        fg.add_subplot(gs[0, 0])  # позиция графика
-        plt.title('Lattice')
-        plt.grid(True)
-        plt.axis('square')
-        plt.xlim(floor(min(self.coordinates['u']['x'] + self.coordinates['l']['x'])),
-                 ceil(max(self.coordinates['u']['x'] + self.coordinates['l']['x'])))
-        plt.ylim(-1, 1)
-        plt.plot([min(self.coordinates['u']['x'] + self.coordinates['l']['x'])] * 2, [-1, 1],
-                 [max(self.coordinates['u']['x'] + self.coordinates['l']['x'])] * 2, [-1, 1],
-                 ls='-', color='black')  # границы решетки
-        for i in range(len(self.d)):
-            plt.plot(list(self.d[i] / 2 * cos(alpha) + self.xd[i] for alpha in linspace(0, 2 * pi, 360)),
-                     list(self.d[i] / 2 * sin(alpha) + self.yd[i] for alpha in linspace(0, 2 * pi, 360)),
-                     ls='solid', color='green')
-        plt.plot(self.xd, self.yd, ls='dashdot', color='orange',
-                 label=f'gamma = {self.__gamma:.4f} [rad] = {degrees(self.__gamma):.4f} [deg]')
-        plt.plot(self.coordinates['u']['x'], list(y - self.__t_b / 2 for y in self.coordinates['u']['y']),
-                 ls='-', color='black', label=f't/b = {self.__t_b:.4f}')
-        plt.plot(self.coordinates['l']['x'], list(y - self.__t_b / 2 for y in self.coordinates['l']['y']),
-                 ls='-', color='black')
-        plt.plot(self.coordinates['u']['x'], list(y + self.__t_b / 2 for y in self.coordinates['u']['y']),
-                 ls='-', color='black')
-        plt.plot(self.coordinates['l']['x'], list(y + self.__t_b / 2 for y in self.coordinates['l']['y']),
-                 ls='-', color='black')
-        plt.legend(fontsize=12)
-
-        fg.add_subplot(gs[0, 1])  # позиция графика
-        plt.title('Channel')
-        plt.grid(True)
-        plt.axis('square')
-        plt.xlim([0, ceil(max(self.r))])
-        plt.ylim([0, ceil(self.__t_b)])
-        plt.plot(self.r, self.d, ls='-', color='green', label='channel')
-        plt.plot([0, ceil(max(self.r))], [0, 0], ls='-', color=(0, 0, 0), linewidth=1.5)
-        plt.plot(list((self.r[i] + self.r[i + 1]) / 2 for i in range(len(self.r) - 1)),
-                 list((self.d[i + 1] - self.d[i]) / (self.r[i + 1] - self.r[i]) for i in range(len(self.r) - 1)),
-                 ls='-', color='red', label='d2f/dx2')
-        plt.legend(fontsize=12)
-        plt.tight_layout()
-        plt.show()
+    def export(self, file_path='exports/airfoil', file_name='airfoil', file_extension='xlsx',
+               show_time=True, header=True):
+        export2(self.to_dataframe(bears='pandas'),
+                file_path=file_path,
+                file_name=file_name,
+                file_extension=file_extension,
+                sheet_name='airfoil',
+                show_time=show_time,
+                header=header)
+        export2(pd.DataFrame(self.properties, index=[0]),
+                file_path=file_path,
+                file_name=file_name + '_properties',
+                file_extension=file_extension,
+                sheet_name=file_name + '_properties',
+                show_time=show_time,
+                header=header)
 
 
 def test() -> None:
