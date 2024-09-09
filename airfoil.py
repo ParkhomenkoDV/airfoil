@@ -208,7 +208,7 @@ class Airfoil:
                         elif u[-1] == ']':
                             assert getattr(self, attr) <= float(u[:-1]), f'attribute {attr} <= {float(u[:-1])}'
 
-            elif self.__method in Airfoil.__methods['MYNK']['aliases']:
+            if self.__method in Airfoil.__methods['MYNK']['aliases']:
                 assert hasattr(self, 'mynk_coefficient')
                 assert isinstance(self.mynk_coefficient, (int, float))
                 assert 0 <= self.mynk_coefficient <= 1
@@ -870,10 +870,10 @@ class Airfoil:
         self.__properties['Sy'] = \
             integrate.dblquad(lambda _, x: x, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
                               epsrel=epsrel)[0]
-        self.__properties['x0'] = self.__properties['Sy'] / self.__properties['a_b'] if self.__properties[
-                                                                                            'a_b'] != 0 else inf
-        self.__properties['y0'] = self.__properties['Sx'] / self.__properties['a_b'] if self.__properties[
-                                                                                            'a_b'] != 0 else inf
+        self.__properties['x0'] = self.__properties['Sy'] / self.__properties['a_b'] \
+            if self.__properties['a_b'] != 0 else inf
+        self.__properties['y0'] = self.__properties['Sx'] / self.__properties['a_b'] \
+            if self.__properties['a_b'] != 0 else inf
         self.__properties['Jx'] = \
             integrate.dblquad(lambda y, _: y ** 2, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
                               epsrel=epsrel)[0]
@@ -892,7 +892,8 @@ class Airfoil:
             sqrt((0 - self.__properties['x0']) ** 2 + (0 - self.__properties['y0']) ** 2),
             sqrt((1 - self.__properties['x0']) ** 2 + (0 - self.__properties['y0']) ** 2))
         self.__properties['alpha'] = 0.5 * atan(-2 * self.__properties['Jxcyc'] /
-                                                (self.__properties['Jxc'] - self.__properties['Jyc']))
+                                                (self.__properties['Jxc'] - self.__properties['Jyc'])) \
+            if (self.__properties['Jxc'] - self.__properties['Jyc']) != 0 else -pi / 4
         self.__properties['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__Fu, x) ** 2), 0, 1,
                                                     epsrel=epsrel)[0]
         self.__properties['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__Fl, x) ** 2), 0, 1,
