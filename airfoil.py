@@ -64,7 +64,7 @@ class Airfoil:
                 'outlet_angle': {
                     'description': 'угол раскрытия выходной кромки',
                     'unit': '[rad]',
-                    'bounds': '[0, {radians(180)})',
+                    'bounds': f'[0, {radians(180)})',
                     'type': (int, float, np.number)},
                 'x_ray_cross': {
                     'description': 'относительная координата х пересечения входного и выходного лучей',
@@ -83,17 +83,17 @@ class Airfoil:
                          'description': 'максимальная относительная толщина',
                          'unit': '[]',
                          'bounds': '[0, 1)',
-                         'type': (int, float)},
+                         'type': (int, float, np.number)},
                      'x_relative_camber': {
                          'description': 'относительна координата х максимальной выпуклости',
                          'unit': '[]',
                          'bounds': '[0, 1]',
-                         'type': (int, float)},
+                         'type': (int, float, np.number)},
                      'relative_camber': {
                          'description': 'относительная максимальная выпуклость',
                          'unit': '[]',
                          'bounds': '[0, 1)',
-                         'type': (float,)},
+                         'type': (int, float, np.number)},
                      'closed': {
                          'description': 'замкнутость профиля',
                          'unit': '[]',
@@ -622,7 +622,7 @@ class Airfoil:
     @property
     def is_fitted(self) -> bool:
         """Проверка на выполненный расчет"""
-        return all((self.__coordinates, self.__properties, self.__channel))
+        return all((self.__coordinates, self.__properties, len(self.__channel) >= 3))
 
     @timeit()
     def __calculate(self):
@@ -791,8 +791,7 @@ class Airfoil:
         fg.add_subplot(gs[1, 1])
         plt.title('Channel')
         plt.grid(True)
-        plt.axis('square')
-
+        plt.axis('equal')  # square
         plt.xlim([0, ceil(max(r / 2))])
         plt.ylim([0, ceil(self.__relative_step)])
         plt.plot(r, d, ls='solid', color='green', label='channel')
@@ -801,13 +800,16 @@ class Airfoil:
                  list((d[i + 1] - d[i]) / (r[i + 1] - r[i]) for i in range(len(r) - 1)),
                  ls='solid', color='red', label='d2f/dx2')
         plt.legend(fontsize=12)
+
         fg.add_subplot(gs[:, 2])
         plt.title('Lattice')
         plt.grid(True)
         plt.axis('equal')
         plt.xlim([0, 1])
-        plt.plot([min(self.coordinates['u']['x'] + self.coordinates['l']['x'])] * 2, [-1, 1],
-                 [max(self.coordinates['u']['x'] + self.coordinates['l']['x'])] * 2, [-1, 1],
+        plt.plot((0, 0), (np.max(self.coordinates['u']['y']),
+                          np.min(self.coordinates['l']['y']) - (amount - 1) * self.__relative_step),
+                 (1, 1), (np.max(self.coordinates['u']['y']),
+                          np.min(self.coordinates['l']['y']) - (amount - 1) * self.__relative_step),
                  ls='solid', color='black')  # границы решетки
         for n in range(amount):
             plt.plot(array(self.coordinates['u']['x']), array(self.coordinates['u']['y']) - n * self.__relative_step,
@@ -818,7 +820,6 @@ class Airfoil:
             plt.plot(list(d[i] / 2 * cos(alpha) + x[i]), list(d[i] / 2 * sin(alpha) + y[i]),
                      ls='solid', color='green')
         plt.plot(x, y, ls='dashdot', color='orange')
-        plt.legend(fontsize=12)
 
         if savefig:
             export2(plt, file_path='exports/airfoil', file_name='airfoil', file_extension='png', show_time=False)
@@ -1088,7 +1089,7 @@ def test() -> None:
 
         airfoils[-1].rotation_angle = radians(110)
         airfoils[-1].relative_inlet_radius, airfoils[-1].relative_outlet_radius = 0.06, 0.03
-        airfoils[-1].inlet_angle, airfoils[-1].outlet_angle = radians(0), radians(10)
+        airfoils[-1].inlet_angle, airfoils[-1].outlet_angle = radians(20), radians(10)
         airfoils[-1].x_ray_cross = 0.4
         airfoils[-1].upper_proximity = 0.5
 
