@@ -82,7 +82,7 @@ class Airfoil:
                      'relative_thickness': {
                          'description': 'максимальная относительная толщина',
                          'unit': '[]',
-                         'bounds': '[0, 1)',
+                         'bounds': '[0, 1)',  # TODO 0 не работает - исправить код, а не границу!
                          'type': (int, float, np.number)},
                      'x_relative_camber': {
                          'description': 'относительна координата х максимальной выпуклости',
@@ -174,20 +174,39 @@ class Airfoil:
                 assert hasattr(self, attr), f'not hasattr({attr})'
                 assert isinstance(getattr(self, attr), Airfoil.__methods[self.__method]['attributes'][attr]['type']), \
                     f'type({attr}) not in {Airfoil.__methods[self.__method]["attributes"][attr]["type"]}'
-                l, u = Airfoil.__methods[self.__method]['attributes'][attr]['bounds'].split(', ')
-                if l[1] != '_':  # есть нижняя граница
-                    if l[0] == '(':
-                        assert float(l[1:]) < getattr(self, attr), f'attribute {attr} > {float(l[1:])}'
-                    elif l[0] == '[':
-                        assert float(l[1:]) <= getattr(self, attr), f'attribute {attr} >= {float(l[1:])}'
-                if u[-2] != '_':  # есть верхняя граница
-                    if u[-1] == ')':
-                        assert getattr(self, attr) < float(u[:-1]), f'attribute {attr} < {float(u[:-1])}'
-                    elif u[-1] == ']':
-                        assert getattr(self, attr) <= float(u[:-1]), f'attribute {attr} <= {float(u[:-1])}'
 
-            if self.__method in Airfoil.__methods['NACA']['aliases']:
-                assert isinstance(self.closed, bool)
+                bounds = Airfoil.__methods[self.__method]['attributes'][attr]['bounds']
+                if bounds[0] == '{':  # множества
+                    union, exclusion = bounds.split(' \ ') if ' \ ' in bounds else bounds, None
+
+                    union = union[1:-1]  # удаление '{' и '}'
+                    if '"' in union:  # строковое множество
+                        assert any(getattr(self, attr) == el for el in union.split(', '))
+                    elif 'True' in union or 'False' in union:  # булево множество
+                        assert any(getattr(self, attr) == bool(el) for el in union.split(', '))
+                    else:
+                        assert any(getattr(self, attr) == float(el) for el in union.split(', '))
+
+                    if exclusion is not None:
+                        exclusion = exclusion[1:-1]  # удаление '{' и '}'
+                        if '"' in exclusion:  # строковое множество
+                            assert all(getattr(self, attr) != el for el in exclusion.split(', '))
+                        elif 'True' in union or 'False' in union:  # булево множество
+                            assert all(getattr(self, attr) != bool(el) for el in union.split(', '))
+                        else:
+                            assert all(getattr(self, attr) != float(el) for el in exclusion.split(', '))
+                else:  # интервалы
+                    l, u = bounds.split(', ')
+                    if l[1] != '_':  # есть нижняя граница
+                        if l[0] == '(':
+                            assert float(l[1:]) < getattr(self, attr), f'attribute {attr} > {float(l[1:])}'
+                        elif l[0] == '[':
+                            assert float(l[1:]) <= getattr(self, attr), f'attribute {attr} >= {float(l[1:])}'
+                    if u[-2] != '_':  # есть верхняя граница
+                        if u[-1] == ')':
+                            assert getattr(self, attr) < float(u[:-1]), f'attribute {attr} < {float(u[:-1])}'
+                        elif u[-1] == ']':
+                            assert getattr(self, attr) <= float(u[:-1]), f'attribute {attr} <= {float(u[:-1])}'
 
             elif self.__method in Airfoil.__methods['MYNK']['aliases']:
                 assert hasattr(self, 'mynk_coefficient')
@@ -851,8 +870,10 @@ class Airfoil:
         self.__properties['Sy'] = \
             integrate.dblquad(lambda _, x: x, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
                               epsrel=epsrel)[0]
-        self.__properties['x0'] = self.__properties['Sy'] / self.__properties['a_b']
-        self.__properties['y0'] = self.__properties['Sx'] / self.__properties['a_b']
+        self.__properties['x0'] = self.__properties['Sy'] / self.__properties['a_b'] if self.__properties[
+                                                                                            'a_b'] != 0 else inf
+        self.__properties['y0'] = self.__properties['Sx'] / self.__properties['a_b'] if self.__properties[
+                                                                                            'a_b'] != 0 else inf
         self.__properties['Jx'] = \
             integrate.dblquad(lambda y, _: y ** 2, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
                               epsrel=epsrel)[0]
@@ -970,30 +991,23 @@ class Airfoil:
         """Дифузорность/конфузорность решетки"""
         if len(self.__channel) > 1: return self.__channel
 
-        # kind='cubic' необходим для гладкости производной
-        Fd = interpolate.interp1d(self.coordinates['l']['x'], self.coordinates['l']['y'],
-                                  kind=3, fill_value='extrapolate')
-        Fu = interpolate.interp1d(self.coordinates['u']['x'],
-                                  [y - self.__relative_step for y in self.coordinates['u']['y']],
-                                  kind=3, fill_value='extrapolate')
+        Fu = lambda x: self.__Fu(x) - self.__relative_step
 
         xgmin = min(self.coordinates['u']['x'] + self.coordinates['l']['x']) + self.__relative_inlet_radius
         ygmin = min(self.coordinates['l']['y']) - self.__relative_step / 2
         xgmax = max(self.coordinates['u']['x'] + self.coordinates['l']['x']) - self.__relative_outlet_radius
         ygmax = max(self.coordinates['u']['y']) + self.__relative_step / 2
 
-        # длина кривой
-        l = integrate.quad(lambda x: sqrt(1 + derivative(Fd, x) ** 2), xgmin, xgmax, limit=self.__discreteness ** 2)[0]
-        step = l / self.__discreteness
+        step = self.__properties['len_l'] / self.__discreteness  # шаг вдоль кривой
 
         x = [xgmin]
         while True:
-            X = x[-1] + step * tan2cos(derivative(Fd, x[-1]))
+            X = x[-1] + step * tan2cos(derivative(self.__Fl, x[-1]))
             if X > xgmax: break
             x.append(X)
         x = array(x)
 
-        Au, _, Cu = line_coefs(func=Fd, x0=x)
+        Au, _, Cu = line_coefs(func=self.__Fl, x0=x)
 
         def equations(vars, *args):
             """СНЛАУ"""
@@ -1010,14 +1024,14 @@ class Airfoil:
         xd, yd, d = list(), list(), list()
 
         warnings.filterwarnings('error')
-        for xu, yu, a_u, c_u in tqdm(zip(x, Fd(x), Au, Cu), desc='Channel calculation', total=len(x)):
+        for xu, yu, a_u, c_u in tqdm(zip(x, self.__Fl(x), Au, Cu), desc='Channel calculation', total=len(x)):
             try:
                 res = fsolve(equations, array((xu, yu, self.__relative_step / 2, xu)), args=(xu, yu, a_u, c_u))
             except Exception:
                 continue
 
             if all((xgmin <= res[0] <= xgmax,
-                    Fu(res[0]) < res[1] < Fd(res[0]),  # y центра окружности лежит в канале
+                    Fu(res[0]) < res[1] < self.__Fl(res[0]),  # y центра окружности лежит в канале
                     xgmin <= res[3] <= xgmax,
                     res[2] * 2 <= self.__relative_step)):
                 xd.append(res[0])
@@ -1025,7 +1039,7 @@ class Airfoil:
                 d.append(res[2] * 2)
         warnings.filterwarnings('default')
 
-        r = np.zeros(len(d))
+        r = zeros(len(d))
         for i in range(1, len(d)): r[i] = r[i - 1] + dist((xd[i - 1], yd[i - 1]), (xd[i], yd[i]))
 
         self.__channel = array((xd, yd, d, r)).T
@@ -1096,7 +1110,7 @@ def test() -> None:
     if 1:
         airfoils.append(Airfoil('NACA', 40, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].relative_thickness = 0.24
+        airfoils[-1].relative_thickness = 0.2
         airfoils[-1].x_relative_camber = 0.3
         airfoils[-1].relative_camber = 0.05
         airfoils[-1].closed = True
