@@ -1,7 +1,9 @@
 """
 Список литературы:
 
-[1] =
+[1] = Теория и проектирование газовой турбины: учебное пособие /
+В.Е. Михальцев, В.Д. Моляков; под ред. А.Ю. Вараксина. -
+Москва: Издательство МГТУ им. Н.Э. Баумана, 2020. - 230, [2] с.: ил.
 """
 
 import sys
@@ -48,21 +50,21 @@ class Airfoil:
                     'description': 'относительный радиус входной кромки',
                     'unit': '[]',
                     'bounds': '(0, 1)',
-                    'type': (float,)},
+                    'type': (float, np.floating)},
                 'relative_outlet_radius': {
                     'description': 'относительный радиус выходной кромки',
                     'unit': '[]',
                     'bounds': '(0, 1)',
-                    'type': (float,)},
+                    'type': (float, np.floating)},
                 'inlet_angle': {
                     'description': 'угол раскрытия входной кромки',
                     'unit': '[rad]',
-                    'bounds': '(0, _)',
+                    'bounds': f'[0, {radians(180)})',
                     'type': (int, float, np.number)},
                 'outlet_angle': {
                     'description': 'угол раскрытия выходной кромки',
                     'unit': '[rad]',
-                    'bounds': '(0, _)',
+                    'bounds': '[0, {radians(180)})',
                     'type': (int, float, np.number)},
                 'x_ray_cross': {
                     'description': 'относительная координата х пересечения входного и выходного лучей',
@@ -175,9 +177,9 @@ class Airfoil:
                 l, u = Airfoil.__methods[self.__method]['attributes'][attr]['bounds'].split(', ')
                 if l[1] != '_':  # есть нижняя граница
                     if l[0] == '(':
-                        assert float(l[1:]) < getattr(self, attr), f'attribute {float(l[1:])} < {attr}'
+                        assert float(l[1:]) < getattr(self, attr), f'attribute {attr} > {float(l[1:])}'
                     elif l[0] == '[':
-                        assert float(l[1:]) <= getattr(self, attr), f'attribute {float(l[1:])} <= {attr}'
+                        assert float(l[1:]) <= getattr(self, attr), f'attribute {attr} >= {float(l[1:])}'
                 if u[-2] != '_':  # есть верхняя граница
                     if u[-1] == ')':
                         assert getattr(self, attr) < float(u[:-1]), f'attribute {attr} < {float(u[:-1])}'
@@ -843,22 +845,22 @@ class Airfoil:
             if abs((self.__Fu(x) + self.__Fl(x)) / 2) > abs(self.__properties['f_b']):
                 self.__properties['xf_b'], self.__properties['f_b'] = x, (self.__Fu(x) + self.__Fl(x)) / 2
         self.__properties['Sx'] = \
-        integrate.dblquad(lambda y, _: y, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
-                          epsrel=epsrel)[0]
+            integrate.dblquad(lambda y, _: y, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                              epsrel=epsrel)[0]
         self.__properties['Sy'] = \
-        integrate.dblquad(lambda _, x: x, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
-                          epsrel=epsrel)[0]
+            integrate.dblquad(lambda _, x: x, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                              epsrel=epsrel)[0]
         self.__properties['x0'] = self.__properties['Sy'] / self.__properties['a_b']
         self.__properties['y0'] = self.__properties['Sx'] / self.__properties['a_b']
         self.__properties['Jx'] = \
-        integrate.dblquad(lambda y, _: y ** 2, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
-                          epsrel=epsrel)[0]
+            integrate.dblquad(lambda y, _: y ** 2, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                              epsrel=epsrel)[0]
         self.__properties['Jy'] = \
-        integrate.dblquad(lambda _, x: x ** 2, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
-                          epsrel=epsrel)[0]
+            integrate.dblquad(lambda _, x: x ** 2, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                              epsrel=epsrel)[0]
         self.__properties['Jxy'] = \
-        integrate.dblquad(lambda y, x: x * y, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
-                          epsrel=epsrel)[0]
+            integrate.dblquad(lambda y, x: x * y, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                              epsrel=epsrel)[0]
         self.__properties['Jxc'] = self.__properties['Jx'] - self.__properties['a_b'] * self.__properties['y0'] ** 2
         self.__properties['Jyc'] = self.__properties['Jy'] - self.__properties['a_b'] * self.__properties['x0'] ** 2
         self.__properties['Jxcyc'] = (self.__properties['Jxy'] -
@@ -1086,7 +1088,7 @@ def test() -> None:
 
         airfoils[-1].rotation_angle = radians(110)
         airfoils[-1].relative_inlet_radius, airfoils[-1].relative_outlet_radius = 0.06, 0.03
-        airfoils[-1].inlet_angle, airfoils[-1].outlet_angle = radians(20), radians(10)
+        airfoils[-1].inlet_angle, airfoils[-1].outlet_angle = radians(0), radians(10)
         airfoils[-1].x_ray_cross = 0.4
         airfoils[-1].upper_proximity = 0.5
 
