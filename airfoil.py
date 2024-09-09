@@ -70,12 +70,12 @@ class Airfoil:
                     'description': 'относительная координата х пересечения входного и выходного лучей',
                     'unit': '[]',
                     'bounds': '(0, 1)',
-                    'type': (float,)},
+                    'type': (float, np.floating)},
                 'upper_proximity': {
                     'description': 'степень приближенности к спинке',
                     'unit': '[]',
                     'bounds': '[0, 1]',
-                    'type': (int, float)}}},
+                    'type': (int, float, np.number)}}},
         'NACA': {'description': '',
                  'aliases': ('NACA', 'N.A.C.A.'),
                  'attributes': {
