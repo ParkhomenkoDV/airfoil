@@ -259,7 +259,7 @@ class Airfoil:
                 assert hasattr(self, 'deg') and isinstance(self.deg, int) and 0 <= self.deg <= 3
 
     def __init__(self, method: str, discreteness: int = __discreteness,
-                 relative_step: float | int = __relative_step, gamma: float | int = __gamma):
+                 relative_step: float | int = __relative_step, gamma: float | int = __gamma, **attributes):
         self.validate(method=method, discreteness=discreteness, relative_step=relative_step, gamma=gamma)
 
         self.__method = method.strip().upper()  # метод построения аэродинамического профиля
@@ -270,7 +270,10 @@ class Airfoil:
 
         self.__coordinates = dict()  # относительные координаты спинки и корыта
         self.__properties = dict()  # относительные характеристики профиля
-        self.__channel = list()  # дифузорность/конфузорность решетки
+        self.__channel = tuple()  # дифузорность/конфузорность решетки
+
+        for attribute, value in attributes.items():
+            setattr(self, attribute, value)
 
     def __str__(self) -> str:
         return self.__method
@@ -645,7 +648,7 @@ class Airfoil:
 
     @timeit()
     def __calculate(self):
-        self.__coordinates, self.__properties = dict(), dict()
+        self.__coordinates, self.__properties, self.__channel = dict(), dict(), tuple()
         self.validate()
 
         if self.method in Airfoil.__methods['NACA']['aliases']:
@@ -795,15 +798,15 @@ class Airfoil:
         plt.grid(True)  # сетка
         plt.axis('equal')
         plt.xlim([0, 1])
-        plt.plot(self.__coordinates0['u']['x'], self.__coordinates0['u']['y'], ls='-', color='blue', linewidth=2)
-        plt.plot(self.__coordinates0['l']['x'], self.__coordinates0['l']['y'], ls='-', color='red', linewidth=2)
+        plt.plot(self.__coordinates0['u']['x'], self.__coordinates0['u']['y'], ls='solid', color='blue', linewidth=2)
+        plt.plot(self.__coordinates0['l']['x'], self.__coordinates0['l']['y'], ls='solid', color='red', linewidth=2)
         alpha = linspace(0, 2 * pi, 360)
         x_inlet = self.__relative_inlet_radius * cos(alpha) + self.__O_inlet[0]
         y_inlet = self.__relative_inlet_radius * sin(alpha) + self.__O_inlet[1]
         x_outlet = self.__relative_outlet_radius * cos(alpha) + self.__O_outlet[0]
         y_outlet = self.__relative_outlet_radius * sin(alpha) + self.__O_outlet[1]
-        plt.plot(x_inlet, y_inlet, ls='-', color='black', linewidth=1)
-        plt.plot(x_outlet, y_outlet, ls='-', color='black', linewidth=1)
+        plt.plot(x_inlet, y_inlet, ls='solid', color='black', linewidth=1)
+        plt.plot(x_outlet, y_outlet, ls='solid', color='black', linewidth=1)
 
         x, y, d, r = self.channel.T
 
@@ -854,35 +857,35 @@ class Airfoil:
         self.__properties['r_inlet_b'] = self.__relative_inlet_radius
         self.__properties['r_outlet_b'] = self.__relative_outlet_radius
 
-        self.__properties['a_b'] = integrate.dblquad(lambda _, __: 1, 0, 1,
-                                                     lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+        self.__properties['a_b'] = integrate.dblquad(lambda _, __: 1,
+                                                     0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
                                                      epsrel=epsrel)[0]
-        self.__properties['xc_b'], self.__properties['c_b'] = -1.0, 0
-        self.__properties['xf_b'], self.__properties['f_b'] = -1.0, 0
+        self.__properties['xc_b'], self.__properties['c_b'] = -1.0, 0.0
+        self.__properties['xf_b'], self.__properties['f_b'] = -1.0, 0.0
         for x in linspace(0, 1, int(ceil(1 / epsrel))):
             if self.__Fu(x) - self.__Fl(x) > self.__properties['c_b']:
                 self.__properties['xc_b'], self.__properties['c_b'] = x, self.__Fu(x) - self.__Fl(x)
             if abs((self.__Fu(x) + self.__Fl(x)) / 2) > abs(self.__properties['f_b']):
                 self.__properties['xf_b'], self.__properties['f_b'] = x, (self.__Fu(x) + self.__Fl(x)) / 2
-        self.__properties['Sx'] = \
-            integrate.dblquad(lambda y, _: y, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
-                              epsrel=epsrel)[0]
-        self.__properties['Sy'] = \
-            integrate.dblquad(lambda _, x: x, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
-                              epsrel=epsrel)[0]
+        self.__properties['Sx'] = integrate.dblquad(lambda y, _: y,
+                                                    0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                                                    epsrel=epsrel)[0]
+        self.__properties['Sy'] = integrate.dblquad(lambda _, x: x,
+                                                    0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                                                    epsrel=epsrel)[0]
         self.__properties['x0'] = self.__properties['Sy'] / self.__properties['a_b'] \
             if self.__properties['a_b'] != 0 else inf
         self.__properties['y0'] = self.__properties['Sx'] / self.__properties['a_b'] \
             if self.__properties['a_b'] != 0 else inf
-        self.__properties['Jx'] = \
-            integrate.dblquad(lambda y, _: y ** 2, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
-                              epsrel=epsrel)[0]
-        self.__properties['Jy'] = \
-            integrate.dblquad(lambda _, x: x ** 2, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
-                              epsrel=epsrel)[0]
-        self.__properties['Jxy'] = \
-            integrate.dblquad(lambda y, x: x * y, 0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
-                              epsrel=epsrel)[0]
+        self.__properties['Jx'] = integrate.dblquad(lambda y, _: y ** 2,
+                                                    0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                                                    epsrel=epsrel)[0]
+        self.__properties['Jy'] = integrate.dblquad(lambda _, x: x ** 2,
+                                                    0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                                                    epsrel=epsrel)[0]
+        self.__properties['Jxy'] = integrate.dblquad(lambda y, x: x * y,
+                                                     0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                                                     epsrel=epsrel)[0]
         self.__properties['Jxc'] = self.__properties['Jx'] - self.__properties['a_b'] * self.__properties['y0'] ** 2
         self.__properties['Jyc'] = self.__properties['Jy'] - self.__properties['a_b'] * self.__properties['x0'] ** 2
         self.__properties['Jxcyc'] = (self.__properties['Jxy'] -
@@ -894,11 +897,12 @@ class Airfoil:
         self.__properties['alpha'] = 0.5 * atan(-2 * self.__properties['Jxcyc'] /
                                                 (self.__properties['Jxc'] - self.__properties['Jyc'])) \
             if (self.__properties['Jxc'] - self.__properties['Jyc']) != 0 else -pi / 4
-        self.__properties['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__Fu, x) ** 2), 0, 1,
+        self.__properties['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__Fu, x) ** 2),
+                                                    0, 1,
                                                     epsrel=epsrel)[0]
-        self.__properties['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__Fl, x) ** 2), 0, 1,
+        self.__properties['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__Fl, x) ** 2),
+                                                    0, 1,
                                                     epsrel=epsrel)[0]
-
         return self.__properties
 
     '''
@@ -1060,6 +1064,7 @@ class Airfoil:
                          dtype='float64').T
 
     def to_dataframe(self, bears: str = 'pandas'):
+        assert bears in ('pandas', 'polars')
         if bears.strip().lower() == 'pandas':
             return pd.DataFrame(
                 {'xu': pd.Series(self.coordinates['u']['x']), 'yu': pd.Series(self.coordinates['u']['y']),
@@ -1068,8 +1073,6 @@ class Airfoil:
             return pl.concat([pl.DataFrame({'xu': self.coordinates['u']['x'], 'yu': self.coordinates['u']['y']}),
                               pl.DataFrame({'xl': self.coordinates['l']['x'], 'yl': self.coordinates['l']['y']})],
                              how='horizontal')
-        print(Fore.RED + 'Unknown bears!' + Fore.RESET)
-        print('Use "pandas" or "polars"!')
 
     def export(self, file_path='exports/airfoil', file_name='airfoil', file_extension='xlsx',
                show_time=True, header=True):
@@ -1099,7 +1102,7 @@ def test() -> None:
 
     airfoils = list()
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('BMSTU', 30, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].rotation_angle = radians(110)
@@ -1111,7 +1114,7 @@ def test() -> None:
     if 1:
         airfoils.append(Airfoil('NACA', 40, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].relative_thickness = 0.2
+        airfoils[-1].relative_thickness = 0.0
         airfoils[-1].x_relative_camber = 0.3
         airfoils[-1].relative_camber = 0.05
         airfoils[-1].closed = True
