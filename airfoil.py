@@ -519,6 +519,8 @@ class Airfoil:
 
         coordinates = {'u': {'x': Xu, 'y': Yu}, 'l': {'x': Xl, 'y': Yl}}
 
+        self.__relative_outlet_radius = 0 if self.closed else abs(coordinates['u']['y'][-1] - coordinates['l']['y'][-1])
+
         return coordinates
 
     def __mynk_coordinates(self, param, x) -> tuple:
@@ -685,6 +687,7 @@ class Airfoil:
 
         self.coordinates['u']['x'], self.coordinates['u']['y'] = XuGt, YuGt
         self.coordinates['l']['x'], self.coordinates['l']['y'] = XdGt, YdGt
+        del XuGt, YuGt, XdGt, YdGt
 
         x_min = min(np.min(self.coordinates['u']['x']), np.min(self.coordinates['l']['x']))
         x_max = max(np.max(self.coordinates['u']['x']), np.max(self.coordinates['l']['x']))
@@ -693,8 +696,6 @@ class Airfoil:
 
         self.__Fu = interpolate.interp1d(*self.coordinates['u'].values(), kind=3, fill_value='extrapolate')
         self.__Fl = interpolate.interp1d(*self.coordinates['l'].values(), kind=3, fill_value='extrapolate')
-
-        self.find_circles()
 
         return self.coordinates
 
@@ -718,50 +719,48 @@ class Airfoil:
         return {'u': {'x': xun, 'y': yun},
                 'l': {'x': xdn, 'y': ydn}}
 
-    def find_circles(self, dx: float = 0.000_1) -> dict:
-        """Поиск радиусов окружностей входной и выходной кромок"""
-        if all(hasattr(self, attr) for attr in ('_Airfoil__O_inlet', '_Airfoil__relative_inlet_radius',
-                                                '_Airfoil__O_outlet', '_Airfoil__relative_outlet_radius')):
-            return {'inlet': {'O': self.__O_inlet, 'r': self.__relative_inlet_radius},
-                    'outlet': {'O': self.__O_outlet, 'r': self.__relative_outlet_radius}}
+    def __find_circles(self, coords: dict[str:dict], dl: float = 0.01) -> dict[str:dict]:
+        """Поиск радиусов окружностей входной и выходной кромок и их центров"""
+        # dl < 0.01 нецелесообразен ввиду технологической невозможности
+        # dl > 0.01 нецелесообразен ввиду большого шага dx производной
 
-        if not hasattr(self, '_Airfoil__O_inlet') and not hasattr(self, '_Airfoil__relative_inlet_radius'):
-            pass
-        Fu = interpolate.interp1d(*self.coordinates['u'].values(), kind=3, fill_value='extrapolate')
-        Fd = interpolate.interp1d(*self.coordinates['l'].values(), kind=3, fill_value='extrapolate')
+        Fu = interpolate.interp1d(*coords['u'].values(), kind=3, fill_value='extrapolate')
+        Fl = interpolate.interp1d(*coords['l'].values(), kind=3, fill_value='extrapolate')
 
-        x0, x1 = 0, 1
-        y0, y1 = Fu(x0), Fu(x1)
+        x0, x1 = 0, 1  # координаты x входной и выходной окружности
+        y0, y1 = Fu(x0), Fu(x1)  # координаты y входной и выходной окружности
 
-        x0u, x1u = dx, 1 - dx
+        x0u = x0 + dl * tan2cos(derivative(Fu, x0, method='forward', dx=dl))
+        x1u = x1 - dl * tan2cos(derivative(Fu, x1, method='backward', dx=dl))
         y0u, y1u = Fu(x0u), Fu(x1u)
-
-        x0d, x1d = dx, 1 - dx
-        y0d, y1d = Fd(x0d), Fd(x1d)
+        x0l = x0 + dl * tan2cos(derivative(Fl, x0, method='forward', dx=dl))
+        x1l = x1 - dl * tan2cos(derivative(Fl, x1, method='backward', dx=dl))
+        y0l, y1l = Fl(x0l), Fl(x1l)
 
         A0u, B0u, C0u = line_coefs(p1=(x0, y0), p2=(x0u, y0u))
-        A0d, B0d, C0d = line_coefs(p1=(x0, y0), p2=(x0d, y0d))
+        A0l, B0l, C0l = line_coefs(p1=(x0, y0), p2=(x0l, y0l))
         A1u, B1u, C1u = line_coefs(p1=(x1, y1), p2=(x1u, y1u))
-        A1d, B1d, C1d = line_coefs(p1=(x1, y1), p2=(x1d, y1d))
+        A1l, B1l, C1l = line_coefs(p1=(x1, y1), p2=(x1l, y1l))
 
-        # A для перпендикуляров
-        AA0u, AA0d = -1 / A0u, -1 / A0d
-        AA1u, AA1d = -1 / A1u, -1 / A1d
-
-        # С для перпендикуляров
-        CC0u, CC0d = y0u - AA0u * x0u, y0d - AA0d * x0d
-        CC1u, CC1d = y1u - AA1u * x1u, y1d - AA1d * x1d
+        # коэффициент A для перпендикуляров
+        AA0u, AA0l = -1 / A0u if A0u != 0 else -inf, -1 / A0l if A0l != 0 else -inf
+        AA1u, AA1l = -1 / A1u if A1u != 0 else -inf, -1 / A1l if A1l != 0 else -inf
+        # коэффициент С для перпендикуляров
+        CC0u, CC0l = np.mean((y0, y0u)) - AA0u * np.mean((x0, x0u)), np.mean((y0, y0l)) - AA0l * np.mean((x0, x0l))
+        CC1u, CC1l = np.mean((y1, y1u)) - AA1u * np.mean((x1, x1u)), np.mean((y1, y1l)) - AA1l * np.mean((x1, x1l))
 
         # центры входной и выходной окружностей
-        if not hasattr(self, '_Airfoil__O_inlet'): self.__O_inlet = COOR(AA0u, CC0u, AA0d, CC0d)
-        if not hasattr(self, '_Airfoil__O_outlet'): self.__O_outlet = COOR(AA1u, CC1u, AA1d, CC1d)
-        if not hasattr(self, '_Airfoil__relative_inlet_radius'):
-            self.__relative_inlet_radius = abs(self.__O_inlet[0] - x0)
-        if not hasattr(self, '_Airfoil__relative_outlet_radius'):
-            self.__relative_outlet_radius = abs(self.__O_outlet[0] - x1)
+        O_inlet, O_outlet = COOR(AA0u, CC0u, AA0l, CC0l), COOR(AA1u, CC1u, AA1l, CC1l)
+        if not (0.0 <= O_inlet[0] <= 0.5) or not (Fl(O_inlet[0]) <= O_inlet[1] <= Fu(O_inlet[0])):
+            O_inlet = (nan, nan)
+        if not (0.5 <= O_outlet[0] <= 1.0) or not (Fl(O_outlet[0]) <= O_outlet[1] <= Fu(O_outlet[0])):
+            O_outlet = (nan, nan)
 
-        return {'inlet': {'O': self.__O_inlet, 'radius': self.__relative_inlet_radius},
-                'outlet': {'O': self.__O_outlet, 'radius': self.__relative_outlet_radius}}
+        if not hasattr(self, '_Airfoil__relative_inlet_radius'): self.__relative_inlet_radius = abs(O_inlet[0] - x0)
+        if not hasattr(self, '_Airfoil__relative_outlet_radius'): self.__relative_outlet_radius = abs(O_outlet[0] - x1)
+
+        return {'inlet': {'point': O_inlet, 'radius': self.__relative_inlet_radius},
+                'outlet': {'point': O_outlet, 'radius': self.__relative_outlet_radius}}
 
     def show(self, amount: int = 2, figsize=(12, 10), savefig=False):
         """Построение профиля"""
@@ -801,10 +800,11 @@ class Airfoil:
         plt.plot(self.__coordinates0['u']['x'], self.__coordinates0['u']['y'], ls='solid', color='blue', linewidth=2)
         plt.plot(self.__coordinates0['l']['x'], self.__coordinates0['l']['y'], ls='solid', color='red', linewidth=2)
         alpha = linspace(0, 2 * pi, 360)
-        x_inlet = self.__relative_inlet_radius * cos(alpha) + self.__O_inlet[0]
-        y_inlet = self.__relative_inlet_radius * sin(alpha) + self.__O_inlet[1]
-        x_outlet = self.__relative_outlet_radius * cos(alpha) + self.__O_outlet[0]
-        y_outlet = self.__relative_outlet_radius * sin(alpha) + self.__O_outlet[1]
+        circles = self.__find_circles(self.__coordinates0)
+        x_inlet = self.__relative_inlet_radius * cos(alpha) + circles['inlet']['point'][0]
+        y_inlet = self.__relative_inlet_radius * sin(alpha) + circles['inlet']['point'][1]
+        x_outlet = self.__relative_outlet_radius * cos(alpha) + circles['outlet']['point'][0]
+        y_outlet = self.__relative_outlet_radius * sin(alpha) + circles['outlet']['point'][1]
         plt.plot(x_inlet, y_inlet, ls='solid', color='black', linewidth=1)
         plt.plot(x_outlet, y_outlet, ls='solid', color='black', linewidth=1)
 
@@ -813,20 +813,20 @@ class Airfoil:
         fg.add_subplot(gs[1, 1])
         plt.title('Channel')
         plt.grid(True)
-        plt.axis('equal')  # square
-        plt.xlim([0, ceil(max(r / 2))])
-        plt.ylim([0, ceil(self.__relative_step)])
-        plt.plot(r, d, ls='solid', color='green', label='channel')
-        plt.plot([0, ceil(max(r))], [0, 0], ls='solid', color=(0, 0, 0), linewidth=1.5)
+        plt.ylim([-self.__relative_step / 2, self.__relative_step / 2])
+        plt.plot(r, d / 2, ls='solid', color='green', label='channel')
+        plt.plot(r, -d / 2, ls='solid', color='green')
+        plt.plot([0, max(r)], [0, 0], ls='dashdot', color='orange', linewidth=1.5)
         plt.plot(list((r[i] + r[i + 1]) / 2 for i in range(len(r) - 1)),
                  list((d[i + 1] - d[i]) / (r[i + 1] - r[i]) for i in range(len(r) - 1)),
-                 ls='solid', color='red', label='d2f/dx2')
+                 ls='solid', color='red', label='df/dx')
+        plt.axis('equal')  # square
         plt.legend(fontsize=12)
 
         fg.add_subplot(gs[:, 2])
         plt.title('Lattice')
         plt.grid(True)
-        plt.axis('equal')
+        plt.axis('equal')  # xlim не нужен ввиду эквивалентности
         plt.xlim([0, 1])
         plt.plot((0, 0), (np.max(self.coordinates['u']['y']),
                           np.min(self.coordinates['l']['y']) - (amount - 1) * self.__relative_step),
@@ -854,6 +854,10 @@ class Airfoil:
         if not self.is_fitted: self.__calculate()
         if self.__properties: return self.__properties
 
+        if not hasattr(self, '_Airfoil__relative_inlet_radius'):
+            self.__relative_inlet_radius = self.__find_circles(self.__coordinates)['inlet']['radius']
+        if not hasattr(self, '_Airfoil__relative_outlet_radius'):
+            self.__relative_outlet_radius = self.__find_circles(self.__coordinates)['outlet']['radius']
         self.__properties['r_inlet_b'] = self.__relative_inlet_radius
         self.__properties['r_outlet_b'] = self.__relative_outlet_radius
 
@@ -1102,7 +1106,7 @@ def test() -> None:
 
     airfoils = list()
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('BMSTU', 30, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].rotation_angle = radians(110)
@@ -1114,7 +1118,7 @@ def test() -> None:
     if 1:
         airfoils.append(Airfoil('NACA', 40, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].relative_thickness = 0.0
+        airfoils[-1].relative_thickness = 0.2
         airfoils[-1].x_relative_camber = 0.3
         airfoils[-1].relative_camber = 0.05
         airfoils[-1].closed = True
