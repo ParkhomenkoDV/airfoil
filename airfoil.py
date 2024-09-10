@@ -817,9 +817,7 @@ class Airfoil:
         plt.plot(r, d / 2, ls='solid', color='green', label='channel')
         plt.plot(r, -d / 2, ls='solid', color='green')
         plt.plot([0, max(r)], [0, 0], ls='dashdot', color='orange', linewidth=1.5)
-        plt.plot(list((r[i] + r[i + 1]) / 2 for i in range(len(r) - 1)),
-                 list((d[i + 1] - d[i]) / (r[i + 1] - r[i]) for i in range(len(r) - 1)),
-                 ls='solid', color='red', label='df/dx')
+        plt.plot((r[:-1] + r[1:]) / 2, np.diff(d) / np.diff(r), ls='solid', color='red', label='df/dx')
         plt.axis('equal')  # square
         plt.legend(fontsize=12)
 
