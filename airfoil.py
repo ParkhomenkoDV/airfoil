@@ -498,8 +498,6 @@ class Airfoil:
         return tuple(((x, y) for x, y in zip(x, y)))
 
     def __naca(self) -> tuple[tuple[float, float], ...]:
-        coordinates = {'u': {'x': None, 'y': None}, 'l': {'x': None, 'y': None}}  # результат
-
         i = arange(self.__discreteness)  # массив индексов
         betta = i * pi / (2 * (self.__discreteness - 1))
         x = 1 - cos(betta)
@@ -521,32 +519,15 @@ class Airfoil:
 
         sin_tetta, cos_tetta = sin(tetta), cos(tetta)  # предварительный расчет для ускорения работы
 
-        coordinates['u']['x'], coordinates['u']['y'] = x - yc * sin_tetta, yf + yc * cos_tetta
-        coordinates['l']['x'], coordinates['l']['y'] = x + yc * sin_tetta, yf - yc * cos_tetta
+        X = np.hstack(((x - yc * sin_tetta)[::-1], (x + yc * sin_tetta)[1::]))  # revers против часовой стрелки
+        Y = np.hstack(((yf + yc * cos_tetta)[::-1], (yf - yc * cos_tetta)[1::]))  # удаление дубликатной входной точки
 
-        x_min = min(np.min(coordinates['u']['x']), np.min(coordinates['l']['x']))
-        x_max = max(np.max(coordinates['u']['x']), np.max(coordinates['l']['x']))
+        x_min, x_max = X.min(), X.max()
         scale = abs(x_max - x_min)
 
-        ux, uy = [nan] * len(coordinates['u']['x']), [nan] * len(coordinates['u']['x'])
-        lx, ly = [nan] * len(coordinates['l']['x']), [nan] * len(coordinates['l']['x'])
+        coordinates = self.__transform(tuple(((x, y) for x, y in zip(X, Y))), x0=x_min, scale=(1 / scale))
 
-        for i, _ in enumerate(coordinates['u']['x']):
-            ux[i], uy[i] = Axis.transform(coordinates['u']['x'][i], coordinates['u']['y'][i],
-                                          x0=x_min, y0=0, angle=0, scale=1 / scale)
-        for i, _ in enumerate(coordinates['l']['x']):
-            lx[i], ly[i] = Axis.transform(coordinates['l']['x'][i], coordinates['l']['y'][i],
-                                          x0=x_min, y0=0, angle=0, scale=1 / scale)
-
-        # отсечка значений спинки корыту и наоборот
-        Xu = (ux[ux.index(min(ux)):] + list(reversed(lx[lx.index(max(lx)):len(lx) - 1])))
-        Yu = (uy[ux.index(min(ux)):] + list(reversed(lx[lx.index(max(lx)):len(lx) - 1])))
-        Xl = list(reversed(ux[1:ux.index(min(ux)) + 1])) + lx[:lx.index(max(lx)) + 1]
-        Yl = list(reversed(uy[1:ux.index(min(ux)) + 1])) + ly[:lx.index(max(lx)) + 1]
-
-        coordinates = {'u': {'x': Xu, 'y': Yu}, 'l': {'x': Xl, 'y': Yl}}
-
-        self.__relative_outlet_radius = 0 if self.closed else abs(coordinates['u']['y'][-1] - coordinates['l']['y'][-1])
+        self.__relative_outlet_radius = 0 if self.closed else abs(coordinates[0][1] - coordinates[-1][1])
 
         return coordinates
 
@@ -724,6 +705,7 @@ class Airfoil:
             for x, y in zip(X[argmax:argmin + 1:+1], Y[argmax:argmin + 1:+1]): upper.append((float(x), float(y)))
             for x, y in zip(X[argmin:-1:+1], Y[argmin:-1:+1]): lower.append((float(x), float(y)))
             for x, y in zip(X[:argmax + 1:+1], Y[:argmax + 1:+1]): lower.append((float(x), float(y)))
+        # if upper[-1][0] != 0: upper.append((0, ?)) # неизвестен y входной кромки
         return {'upper': tuple(upper[::-1]), 'lower': tuple(lower)}
 
     def __find_circles(self, coordinates: tuple[tuple[float, float], ...], dl: float = 0.01) -> dict[str:dict]:
@@ -798,7 +780,8 @@ class Airfoil:
         plt.legend(loc='upper center')
 
         coordinates = self.to_upper_lower(self.__coordinates0)
-        print(coordinates)
+        print(coordinates['upper'])
+        print(coordinates['lower'])
 
         fg.add_subplot(gs[0, 1])
         plt.title('Airfoil structure')
@@ -1057,6 +1040,11 @@ class Airfoil:
 
         return self.__channel
 
+    # TODO
+    def cfd(self):
+        """Продувка"""
+        pass
+
     def to_dataframe(self, bears: str = 'pandas'):
         assert bears in ('pandas', 'polars')
         if bears.strip().lower() == 'pandas':
@@ -1089,10 +1077,11 @@ def test() -> None:
     Airfoil.help()
 
     Airfoil.rnd = 4
+    print(f'Airfoil.rnd: {Airfoil.rnd}')
 
     airfoils = list()
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('BMSTU', 30, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].rotation_angle = radians(110)
@@ -1146,6 +1135,8 @@ def test() -> None:
 
         print(Fore.MAGENTA + 'airfoil channel:' + Fore.RESET)
         print(f'{airfoil.channel}')
+
+        airfoil.cfd()
 
         airfoil.export()
 
