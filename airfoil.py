@@ -43,7 +43,7 @@ class Airfoil:
             'attributes': {
                 'rotation_angle': {
                     'description': 'угол поворота потока',
-                    'unit': '[rad]',
+                    'unit': '[рад]',
                     'bounds': f'(0, {radians(180)}]',
                     'type': (int, float, np.number)},
                 'relative_inlet_radius': {
@@ -58,12 +58,12 @@ class Airfoil:
                     'type': (float, np.floating)},
                 'inlet_angle': {
                     'description': 'угол раскрытия входной кромки',
-                    'unit': '[rad]',
+                    'unit': '[рад]',
                     'bounds': f'[0, {radians(180)})',
                     'type': (int, float, np.number)},
                 'outlet_angle': {
                     'description': 'угол раскрытия выходной кромки',
-                    'unit': '[rad]',
+                    'unit': '[рад]',
                     'bounds': f'[0, {radians(180)})',
                     'type': (int, float, np.number)},
                 'x_ray_cross': {
@@ -88,7 +88,7 @@ class Airfoil:
                          'description': 'относительна координата х максимальной выпуклости',
                          'unit': '[]',
                          'bounds': '(0, 1)',
-                         'type': (int, float, np.number)},
+                         'type': (float, np.floating)},
                      'relative_camber': {
                          'description': 'относительная максимальная выпуклость',
                          'unit': '[]',
@@ -115,7 +115,46 @@ class Airfoil:
                            'unit': '[]',
                            'bounds': '(0, 1)',
                            'type': (float, np.floating)},
-                   }},
+                       'x_relative_camber_upper': {
+                           'description': 'относительна координата х максимальной выпуклости спинки',
+                           'unit': '[]',
+                           'bounds': '(0, 1)',
+                           'type': (float, np.floating), },
+                       'x_relative_camber_lower': {
+                           'description': 'относительна координата х максимальной выпуклости корыта',
+                           'unit': '[]',
+                           'bounds': '(0, 1)',
+                           'type': (float, np.floating), },
+                       'relative_camber_upper': {
+                           'description': 'максимальная относительная толщина спинки относительно оси х',
+                           'unit': '[]',
+                           'bounds': '(-1, 1)',
+                           'type': (int, float, np.number), },
+                       'relative_camber_lower': {
+                           'description': 'максимальная относительная толщина корыта относительно оси х',
+                           'unit': '[]',
+                           'bounds': '(-1, 1)',
+                           'type': (int, float, np.number), },
+                       'd2y_dx2_upper': {
+                           'description': 'кривизна спинки (вторая производная поверхности)',
+                           'unit': '[]',
+                           'bounds': '(_, _)',
+                           'type': (int, float, np.number), },
+                       'd2y_dx2_lower': {
+                           'description': 'кривизна корыта (вторая производная поверхности)',
+                           'unit': '[]',
+                           'bounds': '(_, _)',
+                           'type': (int, float, np.number), },
+                       'theta_outlet_upper': {
+                           'description': 'угол выхода между поверхностью спинки и горизонталью',
+                           'unit': '[]',
+                           'bounds': f'(-{radians(90)}, {radians(90)})',
+                           'type': (int, float, np.number), },
+                       'theta_outlet_lower': {
+                           'description': 'угол выхода между поверхностью корыта и горизонталью',
+                           'unit': '[рад]',
+                           'bounds': f'(-{radians(90)}, {radians(90)})',
+                           'type': (int, float, np.number), }, }},
         'BEZIER': {'description': '',
                    'aliases': ('BEZIER', 'БЕЗЬЕ'),
                    'attributes': {}},
@@ -235,36 +274,7 @@ class Airfoil:
                         elif u[-1] == ']':
                             assert getattr(self, attr) <= float(u[:-1]), f'attribute {attr} <= {float(u[:-1])}'
 
-            if self.__method in Airfoil.__methods['PARSEC']['aliases']:
-                # относ. координата максимального прогиба спинки
-                assert hasattr(self, "f_b_u")
-                assert isinstance(self.f_b_u, (tuple, list))
-                assert len(self.f_b_u) == 2
-                assert all(isinstance(x, float) for x in self.f_b_u)
-
-                # относ. координата максимального прогиба крыта
-                assert hasattr(self, "f_b_l")
-                assert isinstance(self.f_b_l, (tuple, list))
-                assert len(self.f_b_l) == 2
-                assert all(isinstance(x, float) for x in self.f_b_l)
-
-                # кривизна спинки (вторая производная поверхности)
-                assert hasattr(self, "d2y_dx2_u")
-                assert isinstance(self.d2y_dx2_u, (float, int))
-
-                # кривизна корыта (вторая производная поверхности)
-                assert hasattr(self, "d2y_dx2_l")
-                assert isinstance(self.d2y_dx2_l, (float, int))
-
-                # угол выхода между поверхностью спинки и горизонталью [рад]
-                assert hasattr(self, "theta_outlet_u")
-                assert isinstance(self.theta_outlet_u, float)
-
-                # угол выхода между поверхностью корыта и горизонталью [рад]
-                assert hasattr(self, "theta_outlet_l")
-                assert isinstance(self.theta_outlet_l, float)
-
-            elif self.__method in Airfoil.__methods['BEZIER']['aliases']:
+            if self.__method in Airfoil.__methods['BEZIER']['aliases']:
                 assert hasattr(self, 'u') and hasattr(self, 'l')
                 validate_points(self.u)
                 validate_points(self.l)
@@ -536,7 +546,7 @@ class Airfoil:
         x, _ = array(coordinates).T
         return self.__transform(coordinates, x0=x.min(), scale=1 / (x.max() - x.min()))  # нормализация
 
-    def __parsec(self) -> dict[str:dict[str:list]]:
+    def __parsec(self) -> tuple[tuple[float, float], ...]:
         """
         Generate and plot the contour of an airfoil using the PARSEC parameterization
         H. Sobieczky, *'Parametric airfoils and wings'* in *Notes on Numerical Fluid Mechanics*, Vol. 68, pp 71-88]
@@ -581,24 +591,20 @@ class Airfoil:
             return coefs
 
         # поверхностные коэффициенты давления спинки и корыта
-        coefs_u = parsec_coefficients('u', self.relative_inlet_radius, self.f_b_u, self.d2y_dx2_u, (1, 0),
-                                      self.theta_outlet_u)
-        coefs_l = parsec_coefficients('l', self.relative_inlet_radius, self.f_b_l, self.d2y_dx2_l, (1, 0),
-                                      self.theta_outlet_l)
+        coefs_u = parsec_coefficients('u', self.relative_inlet_radius,
+                                      (self.x_relative_camber_upper, self.relative_camber_upper), self.d2y_dx2_upper,
+                                      (1, 0), self.theta_outlet_upper)
+        coefs_l = parsec_coefficients('l', self.relative_inlet_radius,
+                                      (self.x_relative_camber_lower, self.relative_camber_lower), self.d2y_dx2_lower,
+                                      (1, 0), self.theta_outlet_lower)
 
         x = linspace(0, 1, self.__discreteness, endpoint=True)
-        self.coordinates['u']['x'], self.coordinates['l']['x'] = x, x[::-1]
-        self.coordinates['u']['y'] = sum([coefs_u[i] * x ** (i + 0.5) for i in range(6)])  # arange(0.5, 6.5, 1.0)
-        self.coordinates['l']['y'] = sum([coefs_l[i] * x[::-1] ** (i + 0.5) for i in range(6)])
-        self.coordinates['l']['x'], self.coordinates['l']['y'] = self.coordinates['l']['x'][::-1], \
-            self.coordinates['l']['y'][::-1]
 
-        X = np.hstack((x[::-1], x[1::]))
-        Y = np.hstack((sum([coefs_u[i] * x ** (i + 0.5) for i in range(6)])[::-1],
-                       sum([coefs_l[i] * x[::-1] ** (i + 0.5) for i in range(6)])[1::]))
+        X, Y = np.hstack((x[::-1], x[1::])), np.hstack((sum([coefs_u[i] * x ** (i + 0.5) for i in range(6)])[::-1],
+                                                        sum([coefs_l[i] * x ** (i + 0.5) for i in range(6)])[1::]))
         return tuple((x, y) for x, y in zip(X, Y))
 
-    def __bezier(self) -> dict[str:dict[str:list]]:
+    def __bezier(self) -> tuple[tuple[float, float], ...]:
         if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
         if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
 
@@ -608,7 +614,7 @@ class Airfoil:
         self.__O_inlet, self.relative_inlet_radius = (0, 0), 0
         self.__O_outlet, self.relative_outlet_radius = (1, 0), 0
 
-    def __manual(self) -> dict[str:dict[str:list]]:
+    def __manual(self) -> tuple[tuple[float, float], ...]:
         if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
         if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
 
@@ -1002,9 +1008,10 @@ def test() -> None:
         airfoils.append(Airfoil('PARSEC', 30, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].relative_inlet_radius = 0.01
-        airfoils[-1].f_b_u, airfoils[-1].f_b_l = (0.35, 0.055), (0.45, -0.006)
-        airfoils[-1].d2y_dx2_u, airfoils[-1].d2y_dx2_l = -0.35, -0.2
-        airfoils[-1].theta_outlet_u, airfoils[-1].theta_outlet_l = radians(-6), radians(0.05)
+        airfoils[-1].x_relative_camber_upper, airfoils[-1].x_relative_camber_lower = 0.35, 0.45
+        airfoils[-1].relative_camber_upper, airfoils[-1].relative_camber_lower = 0.055, -0.006
+        airfoils[-1].d2y_dx2_upper, airfoils[-1].d2y_dx2_lower = -0.35, -0.2
+        airfoils[-1].theta_outlet_upper, airfoils[-1].theta_outlet_lower = radians(-6), radians(0.05)
 
     if 1:
         airfoils.append(Airfoil('BEZIER', 30, 1 / 1.698, radians(46.23)))
