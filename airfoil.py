@@ -109,7 +109,13 @@ class Airfoil:
                          'type': (int, float, np.number)}}},
         'PARSEC': {'description': '',
                    'aliases': ('PARSEC',),
-                   'attributes': {}},
+                   'attributes': {
+                       'relative_inlet_radius': {
+                           'description': 'относительный радиус входной кромки',
+                           'unit': '[]',
+                           'bounds': '(0, 1)',
+                           'type': (float, np.floating)},
+                   }},
         'BEZIER': {'description': '',
                    'aliases': ('BEZIER', 'БЕЗЬЕ'),
                    'attributes': {}},
@@ -230,11 +236,6 @@ class Airfoil:
                             assert getattr(self, attr) <= float(u[:-1]), f'attribute {attr} <= {float(u[:-1])}'
 
             if self.__method in Airfoil.__methods['PARSEC']['aliases']:
-                # относ. радиус входной кромки
-                assert hasattr(self, 'r_inlet_b')
-                assert isinstance(self.relative_inlet_radius, (int, float))
-                assert 0 <= self.relative_inlet_radius <= 1
-
                 # относ. координата максимального прогиба спинки
                 assert hasattr(self, "f_b_u")
                 assert isinstance(self.f_b_u, (tuple, list))
@@ -535,42 +536,6 @@ class Airfoil:
         x, _ = array(coordinates).T
         return self.__transform(coordinates, x0=x.min(), scale=1 / (x.max() - x.min()))  # нормализация
 
-    def __parsec_coefficients(self, surface: str,
-                              radius_inlet: float | int,
-                              c_b: tuple[float, float], d2y_dx2_surface,
-                              outlet: tuple, theta_outlet_surface: float | int):
-        """PARSEC coefficients"""
-        assert surface in ('l', 'u')
-        assert isinstance(c_b, (tuple, list)) and len(c_b) == 2
-        assert isinstance(outlet, (tuple, list)) and len(outlet) == 2
-
-        x_c_b, y_c_b = c_b
-        x_outlet, y_outlet = outlet
-
-        coef = zeros(6)
-
-        # 1-ый коэффициент зависит от кривой поверхности спинки или корыта
-        coef[0] = -sqrt(2 * radius_inlet) if surface == 'l' else sqrt(2 * radius_inlet)
-
-        i = arange(1, 6)
-
-        # матрицы коэффициентов системы уравнений
-        A = array([x_outlet ** (i + 0.5),
-                   x_c_b ** (i + 0.5),
-                   (i + 0.5) * x_outlet ** (i - 0.5),
-                   (i + 0.5) * x_c_b ** (i - 0.5),
-                   (i ** 2 - 0.25) * x_c_b ** (i - 1.5)])
-        B = array([[y_outlet - coef[0] * sqrt(x_outlet)],
-                   [y_c_b - coef[0] * sqrt(x_c_b)],
-                   [tan(theta_outlet_surface) - 0.5 * coef[0] * (1 / sqrt(x_outlet))],
-                   [-0.5 * coef[0] * (1 / sqrt(x_c_b))],
-                   [d2y_dx2_surface + 0.25 * coef[0] * x_c_b ** (-1.5)]])
-
-        X = np.linalg.solve(A, B)  # решение СЛАУ
-        coef[1:6] = X[0:5, 0]
-
-        return coef
-
     def __parsec(self) -> dict[str:dict[str:list]]:
         """
         Generate and plot the contour of an airfoil using the PARSEC parameterization
@@ -579,21 +544,59 @@ class Airfoil:
         Repository & documentation: http://github.com/dqsis/parsec-airfoils
         """
 
-        # поверхностные коэффициенты давления спинки и корыта
-        cf_u = self.__parsec_coefficients('u', self.relative_inlet_radius, self.f_b_u, self.d2y_dx2_u, (1, 0),
-                                          self.theta_outlet_u)
-        cf_l = self.__parsec_coefficients('l', self.relative_inlet_radius, self.f_b_l, self.d2y_dx2_l, (1, 0),
-                                          self.theta_outlet_l)
+        def parsec_coefficients(surface: str,
+                                radius_inlet: float | int,
+                                c_b: tuple[float, float], d2y_dx2_surface,
+                                outlet: tuple, theta_outlet_surface: float | int):
+            """PARSEC coefficients"""
+            assert surface in ('l', 'u')
+            assert isinstance(c_b, (tuple, list)) and len(c_b) == 2
+            assert isinstance(outlet, (tuple, list)) and len(outlet) == 2
 
-        self.coordinates['u']['x'] = linspace(0, 1, self.__discreteness)
-        self.coordinates['u']['y'] = sum([cf_u[i] * self.coordinates['u']['x'] ** (i + 0.5) for i in range(6)])
-        self.coordinates['l']['x'] = linspace(1, 0, self.__discreteness)
-        self.coordinates['l']['y'] = sum([cf_l[i] * self.coordinates['l']['x'] ** (i + 0.5) for i in range(6)])
+            x_c_b, y_c_b = c_b
+            x_outlet, y_outlet = outlet
+
+            coefs = zeros(6)
+
+            # 1-ый коэффициент зависит от кривой поверхности спинки или корыта
+            coefs[0] = -sqrt(2 * radius_inlet) if surface == 'l' else sqrt(2 * radius_inlet)
+
+            i = arange(1, 6)
+
+            # матрицы коэффициентов системы уравнений
+            A = array([x_outlet ** (i + 0.5),
+                       x_c_b ** (i + 0.5),
+                       (i + 0.5) * x_outlet ** (i - 0.5),
+                       (i + 0.5) * x_c_b ** (i - 0.5),
+                       (i ** 2 - 0.25) * x_c_b ** (i - 1.5)])
+            B = array([[y_outlet - coefs[0] * sqrt(x_outlet)],
+                       [y_c_b - coefs[0] * sqrt(x_c_b)],
+                       [tan(theta_outlet_surface) - 0.5 * coefs[0] * (1 / sqrt(x_outlet))],
+                       [-0.5 * coefs[0] * (1 / sqrt(x_c_b))],
+                       [d2y_dx2_surface + 0.25 * coefs[0] * x_c_b ** (-1.5)]])
+
+            X = np.linalg.solve(A, B)  # решение СЛАУ
+            coefs[1:6] = X[0:5, 0]  # 0 коэффициент уже есть
+
+            return coefs
+
+        # поверхностные коэффициенты давления спинки и корыта
+        coefs_u = parsec_coefficients('u', self.relative_inlet_radius, self.f_b_u, self.d2y_dx2_u, (1, 0),
+                                      self.theta_outlet_u)
+        coefs_l = parsec_coefficients('l', self.relative_inlet_radius, self.f_b_l, self.d2y_dx2_l, (1, 0),
+                                      self.theta_outlet_l)
+
+        x = linspace(0, 1, self.__discreteness, endpoint=True)
+        self.coordinates['u']['x'], self.coordinates['l']['x'] = x, x[::-1]
+        self.coordinates['u']['y'] = sum([coefs_u[i] * x ** (i + 0.5) for i in range(6)])  # arange(0.5, 6.5, 1.0)
+        self.coordinates['l']['y'] = sum([coefs_l[i] * x[::-1] ** (i + 0.5) for i in range(6)])
         self.coordinates['l']['x'], self.coordinates['l']['y'] = self.coordinates['l']['x'][::-1], \
             self.coordinates['l']['y'][::-1]
 
-        self.__O_inlet, self.relative_inlet_radius = (0, 0), 0
-        self.__O_outlet, self.relative_outlet_radius = (1, 0), 0
+        X = np.hstack((x[::-1], x[1::]))
+        Y = np.hstack((sum([coefs_u[i] * x ** (i + 0.5) for i in range(6)])[::-1],
+                       sum([coefs_l[i] * x[::-1] ** (i + 0.5) for i in range(6)])[1::]))
+        return tuple((x, y) for x, y in zip(X, Y))
 
     def __bezier(self) -> dict[str:dict[str:list]]:
         if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
@@ -637,6 +640,7 @@ class Airfoil:
             self.__relative_inlet_radius, self.__relative_outlet_radius = 0, 0
         elif self.method in Airfoil.__methods['PARSEC']['aliases']:
             self.__coordinates0 = self.__parsec()
+            self.__relative_inlet_radius, self.__relative_outlet_radius = 0, 0
         elif self.method in Airfoil.__methods['BEZIER']['aliases']:
             self.__coordinates0 = self.__bezier()
         elif self.method in Airfoil.__methods['MANUAL']['aliases']:
