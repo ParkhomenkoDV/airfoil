@@ -84,12 +84,12 @@ class Airfoil:
                      'relative_thickness': {
                          'description': 'максимальная относительная толщина',
                          'unit': '[]',
-                         'bounds': '[0, 1)',  # TODO 0 не работает - исправить код, а не границу!
+                         'bounds': '[0, 1)',
                          'type': (int, float, np.number)},
                      'x_relative_camber': {
                          'description': 'относительна координата х максимальной выпуклости',
                          'unit': '[]',
-                         'bounds': '[0, 1]',
+                         'bounds': '(0, 1)',
                          'type': (int, float, np.number)},
                      'relative_camber': {
                          'description': 'относительная максимальная выпуклость',
@@ -991,6 +991,8 @@ class Airfoil:
         Fu = lambda x: self.__Fu(x) - self.__relative_step
 
         xgmin, xgmax = 0 + self.__relative_inlet_radius, 1 - self.__relative_outlet_radius
+        if isnan(xgmin): xgmin = 0
+        if isnan(xgmax): xgmin = 1
 
         step = self.__properties['len_l'] / self.__discreteness  # шаг вдоль кривой
 
@@ -1090,7 +1092,7 @@ def test() -> None:
         airfoils[-1].x_ray_cross = 0.4
         airfoils[-1].upper_proximity = 0.5
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('NACA', 40, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].relative_thickness = 0.2
