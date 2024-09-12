@@ -8,8 +8,6 @@
 
 import sys
 import warnings
-from copy import deepcopy
-from typing import Tuple
 
 from tqdm import tqdm
 from colorama import Fore
@@ -107,8 +105,8 @@ class Airfoil:
                      'mynk_coefficient': {
                          'description': 'коэффициент Мунка',
                          'unit': '[]',
-                         'bounds': (0, 1),
-                         'type': ()}}},
+                         'bounds': '[0, _)',
+                         'type': (int, float, np.number)}}},
         'PARSEC': {'description': '',
                    'aliases': ('PARSEC',),
                    'attributes': {}},
@@ -231,12 +229,7 @@ class Airfoil:
                         elif u[-1] == ']':
                             assert getattr(self, attr) <= float(u[:-1]), f'attribute {attr} <= {float(u[:-1])}'
 
-            if self.__method in Airfoil.__methods['MYNK']['aliases']:
-                assert hasattr(self, 'mynk_coefficient')
-                assert isinstance(self.mynk_coefficient, (int, float))
-                assert 0 <= self.mynk_coefficient <= 1
-
-            elif self.__method in Airfoil.__methods['PARSEC']['aliases']:
+            if self.__method in Airfoil.__methods['PARSEC']['aliases']:
                 # относ. радиус входной кромки
                 assert hasattr(self, 'r_inlet_b')
                 assert isinstance(self.relative_inlet_radius, (int, float))
@@ -400,49 +393,46 @@ class Airfoil:
             g_u_outlet, g_d_outlet = self.upper_proximity * self.outlet_angle, (
                     1 - self.upper_proximity) * self.outlet_angle
 
-        # относительные радиусы входной и выходной кромок
-        self.__relative_inlet_radius = self.relative_inlet_radius
-        self.__relative_outlet_radius = self.relative_outlet_radius
         # положения центров окружностей входной и выходной кромок
-        O_inlet = self.__relative_inlet_radius, k_inlet * self.__relative_inlet_radius
-        O_outlet = 1 - self.__relative_outlet_radius, -k_outlet * self.__relative_outlet_radius
+        O_inlet = self.relative_inlet_radius, k_inlet * self.relative_inlet_radius
+        O_outlet = 1 - self.relative_outlet_radius, -k_outlet * self.relative_outlet_radius
 
         # точки пересечения линий спинки и корыта
         xcl_u, ycl_u = COOR(tan(atan(k_inlet) + g_u_inlet),
-                            sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.__relative_inlet_radius -
+                            sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.relative_inlet_radius -
                             (tan(atan(k_inlet) + g_u_inlet)) * O_inlet[0] - (-1) * O_inlet[1],
                             tan(atan(k_outlet) - g_u_outlet),
-                            sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.__relative_outlet_radius -
+                            sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.relative_outlet_radius -
                             (tan(atan(k_outlet) - g_u_outlet)) * O_outlet[0] - (-1) * O_outlet[1])
 
         xcl_d, ycl_d = COOR(tan(atan(k_inlet) - g_d_inlet),
-                            -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.__relative_inlet_radius -
+                            -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.relative_inlet_radius -
                             (tan(atan(k_inlet) - g_d_inlet)) * O_inlet[0] - (-1) * O_inlet[1],
                             tan(atan(k_outlet) + g_d_outlet),
-                            -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.__relative_outlet_radius -
+                            -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.relative_outlet_radius -
                             (tan(atan(k_outlet) + g_d_outlet)) * O_outlet[0] - (-1) * O_outlet[1])
 
         # точки пересечения окружностей со спинкой и корытом
         xclc_i_u, yclc_i_u = COOR(tan(atan(k_inlet) + g_u_inlet),
-                                  sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.__relative_inlet_radius
+                                  sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.relative_inlet_radius
                                   - (tan(atan(k_inlet) + g_u_inlet)) * O_inlet[0] - (-1) * O_inlet[1],
                                   -1 / (tan(atan(k_inlet) + g_u_inlet)),
                                   -(-1 / tan(atan(k_inlet) + g_u_inlet)) * O_inlet[0] - (-1) * O_inlet[1])
 
         xclc_i_d, yclc_i_d = COOR(tan(atan(k_inlet) - g_d_inlet),
-                                  -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.__relative_inlet_radius
+                                  -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.relative_inlet_radius
                                   - (tan(atan(k_inlet) - g_d_inlet)) * O_inlet[0] - (-1) * O_inlet[1],
                                   -1 / (tan(atan(k_inlet) - g_d_inlet)),
                                   -(-1 / tan(atan(k_inlet) - g_d_inlet)) * O_inlet[0] - (-1) * O_inlet[1])
 
         xclc_e_u, yclc_e_u = COOR(tan(atan(k_outlet) - g_u_outlet),
-                                  sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.__relative_outlet_radius
+                                  sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.relative_outlet_radius
                                   - tan(atan(k_outlet) - g_u_outlet) * O_outlet[0] - (-1) * O_outlet[1],
                                   -1 / tan(atan(k_outlet) - g_u_outlet),
                                   -(-1 / tan(atan(k_outlet) - g_u_outlet)) * O_outlet[0] - (-1) * O_outlet[1])
 
         xclc_e_d, yclc_e_d = COOR(tan(atan(k_outlet) + g_d_outlet),
-                                  -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.__relative_outlet_radius
+                                  -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.relative_outlet_radius
                                   - tan(atan(k_outlet) + g_d_outlet) * O_outlet[0] - (-1) * O_outlet[1],
                                   -1 / tan(atan(k_outlet) + g_d_outlet),
                                   -(-1 / tan(atan(k_outlet) + g_d_outlet)) * O_outlet[0] - (-1) * O_outlet[1])
@@ -454,8 +444,8 @@ class Airfoil:
         if O_outlet[0] > xclc_e_u: an = pi - an
         # уменьшение угла для предотвращения дублирования координат
         angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
-        x += (1 - self.__relative_outlet_radius * (1 - cos(angles))).tolist()
-        y += (O_outlet[1] + self.__relative_outlet_radius * sin(angles)).tolist()
+        x += (1 - self.relative_outlet_radius * (1 - cos(angles))).tolist()
+        y += (O_outlet[1] + self.relative_outlet_radius * sin(angles)).tolist()
 
         # спинка
         xu, yu = bernstein_curve(((xclc_e_u, yclc_e_u), (xcl_u, ycl_u), (xclc_i_u, yclc_i_u)),
@@ -468,8 +458,8 @@ class Airfoil:
         if xclc_i_u > O_inlet[0]: an = pi - an
         # уменьшение угла для предотвращения дублирования координат
         angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
-        x += (self.__relative_inlet_radius * (1 - cos(angles))).tolist()[::-1]
-        y += (O_inlet[1] + self.__relative_inlet_radius * sin(angles)).tolist()[::-1]
+        x += (self.relative_inlet_radius * (1 - cos(angles))).tolist()[::-1]
+        y += (O_inlet[1] + self.relative_inlet_radius * sin(angles)).tolist()[::-1]
 
         x.pop(), y.pop()  # удаление дубликата входной точки
 
@@ -477,9 +467,9 @@ class Airfoil:
         an = angle(points=((0, O_inlet[1]), O_inlet, (xclc_i_d, yclc_i_d)))
         if xclc_i_d > O_inlet[0]: an = pi - an
         # уменьшение угла для предотвращения дублирования координат
-        angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
-        x += (self.__relative_inlet_radius * (1 - cos(angles))).tolist()
-        y += (O_inlet[1] - self.__relative_inlet_radius * sin(angles)).tolist()
+        angles = linspace(0, an * 0.99, self.discreteness, endpoint=False)
+        x += (self.relative_inlet_radius * (1 - cos(angles))).tolist()
+        y += (O_inlet[1] - self.relative_inlet_radius * sin(angles)).tolist()
 
         # корыто
         xd, yd = bernstein_curve(((xclc_i_d, yclc_i_d), (xcl_d, ycl_d), (xclc_e_d, yclc_e_d)),
@@ -492,8 +482,8 @@ class Airfoil:
         if O_outlet[0] > xclc_e_d: an = pi - an
         # уменьшение угла для предотвращения дублирования координат
         angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
-        x += (1 - self.__relative_outlet_radius * (1 - cos(angles))).tolist()[::-1]
-        y += (O_outlet[1] - self.__relative_outlet_radius * sin(angles)).tolist()[::-1]
+        x += (1 - self.relative_outlet_radius * (1 - cos(angles))).tolist()[::-1]
+        y += (O_outlet[1] - self.relative_outlet_radius * sin(angles)).tolist()[::-1]
 
         return tuple(((x, y) for x, y in zip(x, y)))
 
@@ -525,46 +515,25 @@ class Airfoil:
         x_min, x_max = X.min(), X.max()
         scale = abs(x_max - x_min)
 
-        coordinates = self.__transform(tuple(((x, y) for x, y in zip(X, Y))), x0=x_min, scale=(1 / scale))
-
-        self.__relative_outlet_radius = 0 if self.closed else abs(coordinates[0][1] - coordinates[-1][1])
-
-        return coordinates
-
-    def __mynk_coordinates(self, param, x) -> tuple:
-        part1, part2 = 0.25 * (-x - 17 * x ** 2 - 6 * x ** 3), x ** 0.87 * (1 - x) ** 0.56
-        return param * (part1 + part2), param * (part1 - part2)
+        return self.__transform(tuple(((x, y) for x, y in zip(X, Y))), x0=x_min, scale=(1 / scale))
 
     def __mynk(self) -> tuple[tuple[float, float], ...]:
-        coordinates = {'u': {'x': list(), 'y': list()}, 'l': {'x': list(), 'y': list()}}  # результат
 
-        x = linspace(0, 1, self.__discreteness)
-        coordinates['u']['x'], coordinates['l']['x'] = x, x
-        coordinates['u']['y'], coordinates['l']['y'] = self.__mynk_coordinates(self.mynk_coefficient, x)
+        def mynk_coordinates(param: float, x) -> tuple:
+            """Координата y спинки и корыта"""
+            part1, part2 = 0.25 * (-x - 17 * x ** 2 - 6 * x ** 3), x ** 0.87 * (1 - x) ** 0.56
+            return param * (part1 + part2), param * (part1 - part2)
 
-        angle = atan((coordinates['u']['y'][-1] - coordinates['u']['y'][0]) / (1 - 0))
-        scale = dist((coordinates['u']['x'][0], coordinates['u']['y'][0]),
-                     (coordinates['u']['x'][-1], coordinates['u']['y'][-1]))
+        x = linspace(0, 1, self.__discreteness, endpoint=True)
+        yu, yl = mynk_coordinates(self.mynk_coefficient, x)
+        idx = np.argmax(yu)
+        angle = atan((yu[-1] - yu[0]) / (x[-1] - x[0]))
 
-        ux, uy = [nan] * len(coordinates['u']['x']), [nan] * len(coordinates['u']['x'])
-        lx, ly = [nan] * len(coordinates['l']['x']), [nan] * len(coordinates['l']['x'])
+        X, Y = np.hstack((x[-1:idx:-1], x[idx::-1], x[1::])), np.hstack((yu[-1:idx:-1], yu[idx::-1], yl[1::]))
 
-        for i, _ in enumerate(coordinates['u']['x']):
-            ux[i], uy[i] = Axis.transform(coordinates['u']['x'][i], coordinates['u']['y'][i],
-                                          x0=0, y0=0, angle=angle, scale=1 / scale)
-        for i, _ in enumerate(coordinates['l']['x']):
-            lx[i], ly[i] = Axis.transform(coordinates['l']['x'][i], coordinates['l']['y'][i],
-                                          x0=0, y0=0, angle=angle, scale=1 / scale)
-
-        # отсечка значений спинки корыту и наоборот
-        Xu = (ux[ux.index(min(ux)):] + list(reversed(lx[lx.index(max(lx)):len(lx) - 1])))
-        Yu = (uy[ux.index(min(ux)):] + list(reversed(lx[lx.index(max(lx)):len(lx) - 1])))
-        Xl = list(reversed(ux[1:ux.index(min(ux)) + 1])) + lx[:lx.index(max(lx)) + 1]
-        Yl = list(reversed(uy[1:ux.index(min(ux)) + 1])) + ly[:lx.index(max(lx)) + 1]
-
-        coordinates = {'u': {'x': Xu, 'y': Yu}, 'l': {'x': Xl, 'y': Yl}}
-
-        return coordinates
+        coordinates = self.__transform(tuple(((x, y) for x, y in zip(X, Y))), angle=angle)  # поворот
+        x, _ = array(coordinates).T
+        return self.__transform(coordinates, x0=x.min(), scale=1 / (x.max() - x.min()))  # нормализация
 
     def __parsec_coefficients(self, surface: str,
                               radius_inlet: float | int,
@@ -657,10 +626,15 @@ class Airfoil:
 
         if self.method in Airfoil.__methods['NACA']['aliases']:
             self.__coordinates0 = self.__naca()
+            self.__relative_outlet_radius = 0 if self.closed \
+                else abs(self.__coordinates0[0][1] - self.__coordinates0[-1][1])
         elif self.method in Airfoil.__methods['BMSTU']['aliases']:
             self.__coordinates0 = self.__bmstu()
+            self.__relative_inlet_radius = self.relative_inlet_radius
+            self.__relative_outlet_radius = self.relative_outlet_radius
         elif self.method in Airfoil.__methods['MYNK']['aliases']:
             self.__coordinates0 = self.__mynk()
+            self.__relative_inlet_radius, self.__relative_outlet_radius = 0, 0
         elif self.method in Airfoil.__methods['PARSEC']['aliases']:
             self.__coordinates0 = self.__parsec()
         elif self.method in Airfoil.__methods['BEZIER']['aliases']:
@@ -1100,10 +1074,10 @@ def test() -> None:
         airfoils[-1].relative_camber = 0.05
         airfoils[-1].closed = True
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('MYNK', 20, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].mynk_coefficient = 0.1
+        airfoils[-1].mynk_coefficient = 0.2
 
     if 1:
         airfoils.append(Airfoil('PARSEC', 30, 1 / 1.698, radians(46.23)))
