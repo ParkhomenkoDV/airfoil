@@ -160,7 +160,15 @@ class Airfoil:
                    'attributes': {}},
         'MANUAL': {'description': '',
                    'aliases': ('MANUAL', 'ВРУЧНУЮ'),
-                   'attributes': {}}, }
+                   'attributes': {
+                       'upper': {},
+                       'lower': {},
+                       'deg': {
+                           'description': 'степень интерполяции полинома',
+                           'unit': '[]',
+                           'bounds': f'[1, {max(len(), len()) - 1}]',
+                           'type': (int, np.int_), }
+                   }}, }
     __relative_step = 1.0  # дефолтный относительный шаг []
     __gamma = 0.0  # дефолтный угол установки [рад]
 
@@ -265,14 +273,14 @@ class Airfoil:
                     l, u = bounds.split(', ')
                     if l[1] != '_':  # есть нижняя граница
                         if l[0] == '(':
-                            assert float(l[1:]) < getattr(self, attr), f'attribute {attr} > {float(l[1:])}'
+                            assert float(l[1:]) < getattr(self, attr), f'attribute "{attr}" > {float(l[1:])}'
                         elif l[0] == '[':
-                            assert float(l[1:]) <= getattr(self, attr), f'attribute {attr} >= {float(l[1:])}'
+                            assert float(l[1:]) <= getattr(self, attr), f'attribute "{attr}" >= {float(l[1:])}'
                     if u[-2] != '_':  # есть верхняя граница
                         if u[-1] == ')':
-                            assert getattr(self, attr) < float(u[:-1]), f'attribute {attr} < {float(u[:-1])}'
+                            assert getattr(self, attr) < float(u[:-1]), f'attribute "{attr}" < {float(u[:-1])}'
                         elif u[-1] == ']':
-                            assert getattr(self, attr) <= float(u[:-1]), f'attribute {attr} <= {float(u[:-1])}'
+                            assert getattr(self, attr) <= float(u[:-1]), f'attribute "{attr}" <= {float(u[:-1])}'
 
             if self.__method in Airfoil.__methods['BEZIER']['aliases']:
                 assert hasattr(self, 'u') and hasattr(self, 'l')
@@ -946,9 +954,10 @@ class Airfoil:
         return self.__channel
 
     # TODO
-    def cfd(self):
+    def cfd(self, vx, vy):
         """Продувка"""
-        pass
+        assert isinstance(vx, (int, float, np.number))
+        assert isinstance(vy, (int, float, np.number))
 
     def to_dataframe(self, bears: str = 'pandas'):
         assert bears in ('pandas', 'polars')
@@ -1042,7 +1051,7 @@ def test() -> None:
         print(Fore.MAGENTA + 'airfoil channel:' + Fore.RESET)
         print(f'{airfoil.channel}')
 
-        airfoil.cfd()
+        airfoil.cfd(10, 15)
 
         airfoil.export()
 
