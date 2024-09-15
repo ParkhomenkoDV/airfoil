@@ -26,7 +26,7 @@ from curves import bernstein_curve
 
 sys.path.append('D:/Programming/Python/scripts')
 
-from tools import export2, COOR, Axis, angle, rounding, eps, dist, dist2line, isiter, derivative, line_coefs, tan2cos
+from tools import export2, COOR, Axis, angle, eps, dist, dist2line, isiter, derivative, line_coefs, tan2cos
 from decorators import timeit, warns
 
 
@@ -49,12 +49,12 @@ class Airfoil:
                 'relative_inlet_radius': {
                     'description': 'относительный радиус входной кромки',
                     'unit': '[]',
-                    'bounds': '(0, 1)',
+                    'bounds': '[0, 1)',
                     'type': (float, np.floating)},
                 'relative_outlet_radius': {
                     'description': 'относительный радиус выходной кромки',
                     'unit': '[]',
-                    'bounds': '(0, 1)',
+                    'bounds': '[0, 1)',
                     'type': (float, np.floating)},
                 'inlet_angle': {
                     'description': 'угол раскрытия входной кромки',
@@ -113,7 +113,7 @@ class Airfoil:
                        'relative_inlet_radius': {
                            'description': 'относительный радиус входной кромки',
                            'unit': '[]',
-                           'bounds': '(0, 1)',
+                           'bounds': '[0, 1)',
                            'type': (float, np.floating)},
                        'x_relative_camber_upper': {
                            'description': 'относительна координата х максимальной выпуклости спинки',
@@ -452,11 +452,12 @@ class Airfoil:
 
         # окружность выходной кромки спинки
         an = angle(points=((1, O_outlet[1]), O_outlet, (xclc_e_u, yclc_e_u)))
-        if O_outlet[0] > xclc_e_u: an = pi - an
-        # уменьшение угла для предотвращения дублирования координат
-        angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
-        x += (1 - self.relative_outlet_radius * (1 - cos(angles))).tolist()
-        y += (O_outlet[1] + self.relative_outlet_radius * sin(angles)).tolist()
+        if not isnan(an):  # при не нулевом радиусе окружности
+            if O_outlet[0] > xclc_e_u: an = pi - an
+            # уменьшение угла для предотвращения дублирования координат
+            angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
+            x += (1 - self.relative_outlet_radius * (1 - cos(angles))).tolist()
+            y += (O_outlet[1] + self.relative_outlet_radius * sin(angles)).tolist()
 
         # спинка
         xu, yu = bernstein_curve(((xclc_e_u, yclc_e_u), (xcl_u, ycl_u), (xclc_i_u, yclc_i_u)),
@@ -466,21 +467,23 @@ class Airfoil:
 
         # точки входной окружности кромки по спинке
         an = angle(points=((0, O_inlet[1]), O_inlet, (xclc_i_u, yclc_i_u)))
-        if xclc_i_u > O_inlet[0]: an = pi - an
-        # уменьшение угла для предотвращения дублирования координат
-        angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
-        x += (self.relative_inlet_radius * (1 - cos(angles))).tolist()[::-1]
-        y += (O_inlet[1] + self.relative_inlet_radius * sin(angles)).tolist()[::-1]
+        if not isnan(an):  # при не нулевом радиусе окружности
+            if xclc_i_u > O_inlet[0]: an = pi - an
+            # уменьшение угла для предотвращения дублирования координат
+            angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
+            x += (self.relative_inlet_radius * (1 - cos(angles))).tolist()[::-1]
+            y += (O_inlet[1] + self.relative_inlet_radius * sin(angles)).tolist()[::-1]
 
         x.pop(), y.pop()  # удаление дубликата входной точки
 
         # окружность входной кромки корыта
         an = angle(points=((0, O_inlet[1]), O_inlet, (xclc_i_d, yclc_i_d)))
-        if xclc_i_d > O_inlet[0]: an = pi - an
-        # уменьшение угла для предотвращения дублирования координат
-        angles = linspace(0, an * 0.99, self.discreteness, endpoint=False)
-        x += (self.relative_inlet_radius * (1 - cos(angles))).tolist()
-        y += (O_inlet[1] - self.relative_inlet_radius * sin(angles)).tolist()
+        if not isnan(an):  # при не нулевом радиусе окружности
+            if xclc_i_d > O_inlet[0]: an = pi - an
+            # уменьшение угла для предотвращения дублирования координат
+            angles = linspace(0, an * 0.99, self.discreteness, endpoint=False)
+            x += (self.relative_inlet_radius * (1 - cos(angles))).tolist()
+            y += (O_inlet[1] - self.relative_inlet_radius * sin(angles)).tolist()
 
         # корыто
         xd, yd = bernstein_curve(((xclc_i_d, yclc_i_d), (xcl_d, ycl_d), (xclc_e_d, yclc_e_d)),
@@ -490,11 +493,12 @@ class Airfoil:
 
         # точки выходной окружности кромки по корыту
         an = angle(points=((1, O_outlet[1]), O_outlet, (xclc_e_d, yclc_e_d)))
-        if O_outlet[0] > xclc_e_d: an = pi - an
-        # уменьшение угла для предотвращения дублирования координат
-        angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
-        x += (1 - self.relative_outlet_radius * (1 - cos(angles))).tolist()[::-1]
-        y += (O_outlet[1] - self.relative_outlet_radius * sin(angles)).tolist()[::-1]
+        if not isnan(an):  # при не нулевом радиусе окружности
+            if O_outlet[0] > xclc_e_d: an = pi - an
+            # уменьшение угла для предотвращения дублирования координат
+            angles = linspace(0, an * 0.99, self.__discreteness, endpoint=False)
+            x += (1 - self.relative_outlet_radius * (1 - cos(angles))).tolist()[::-1]
+            y += (O_outlet[1] - self.relative_outlet_radius * sin(angles)).tolist()[::-1]
 
         return tuple(((x, y) for x, y in zip(x, y)))
 
@@ -676,7 +680,7 @@ class Airfoil:
         return new_coordinates
 
     @staticmethod
-    def to_upper_lower(coordinates: tuple[tuple[float, float], ...]) -> dict[str:tuple[tuple[float, float], ...]]:
+    def upper_lower(coordinates: tuple[tuple[float, float], ...]) -> dict[str:tuple[tuple[float, float], ...]]:
         """Разделение координат на спинку и корыто"""
         X, Y = array(coordinates).T
         argmin, argmax = np.argmin(X), np.argmax(X)
@@ -697,7 +701,7 @@ class Airfoil:
         # dl < 0.01 нецелесообразен ввиду технологической невозможности
         # dl > 0.01 нецелесообразен ввиду большого шага dx производной
 
-        coordinates = self.to_upper_lower(coordinates)
+        coordinates = self.upper_lower(coordinates)
 
         Fu = interpolate.interp1d(*(array(coordinates['upper']).T), kind=3, fill_value='extrapolate')
         Fl = interpolate.interp1d(*(array(coordinates['lower']).T), kind=3, fill_value='extrapolate')
@@ -754,16 +758,16 @@ class Airfoil:
                  label=f'gamma = {self.__gamma:.{Airfoil.rnd}f} [rad] = {degrees(self.__gamma):.{Airfoil.rnd}f} [deg]')
         for key, value in self.__dict__.items():
             if not key.startswith('_') and type(value) in (int, float, np.number):
-                plt.plot([], label=f'{key} = {rounding(value, self.rnd)}')
+                plt.plot([], label=f'{key} = {value:.{Airfoil.rnd}f}')
         plt.legend(loc='upper center')
 
         fg.add_subplot(gs[1, 0])
         plt.title('Properties')
         plt.axis('off')
-        for key, value in self.properties.items(): plt.plot([], label=f'{key} = {rounding(value, self.rnd)}')
+        for key, value in self.properties.items(): plt.plot([], label=f'{key} = {value:.{Airfoil.rnd}f}')
         plt.legend(loc='upper center')
 
-        coordinates = self.to_upper_lower(self.__coordinates0)
+        coordinates = self.upper_lower(self.__coordinates0)
         print(coordinates['upper'])
         print(coordinates['lower'])
 
@@ -774,7 +778,7 @@ class Airfoil:
         plt.xlim([0, 1])
         plt.plot(*(array(coordinates['upper']).T), ls='solid', color='blue', linewidth=2)
         plt.plot(*(array(coordinates['lower']).T), ls='solid', color='red', linewidth=2)
-        alpha = linspace(0, 2 * pi, 360)
+        alpha = linspace(0, 2 * pi, 360, endpoint=True)
         circles = self.__find_circles(self.__coordinates0)
         x_inlet = self.__relative_inlet_radius * cos(alpha) + circles['inlet']['point'][0]
         y_inlet = self.__relative_inlet_radius * sin(alpha) + circles['inlet']['point'][1]
@@ -829,7 +833,7 @@ class Airfoil:
         self.__properties['radius_inlet'] = self.__relative_inlet_radius
         self.__properties['radius_outlet'] = self.__relative_outlet_radius
 
-        dct = self.to_upper_lower(self.__coordinates)
+        dct = self.upper_lower(self.__coordinates)
         self.__Fu = interpolate.interp1d(*(array(dct['upper']).T), kind=3, fill_value='extrapolate')
         self.__Fl = interpolate.interp1d(*(array(dct['lower']).T), kind=3, fill_value='extrapolate')
 
@@ -1004,10 +1008,10 @@ def test() -> None:
 
         airfoils[-1].mynk_coefficient = 0.2
 
-    if 1:
-        airfoils.append(Airfoil('PARSEC', 30, 1 / 1.698, radians(46.23)))
+    if 0:
+        airfoils.append(Airfoil('PARSEC', 50, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].relative_inlet_radius = 0.01
+        airfoils[-1].relative_inlet_radius = 0.06
         airfoils[-1].x_relative_camber_upper, airfoils[-1].x_relative_camber_lower = 0.35, 0.45
         airfoils[-1].relative_camber_upper, airfoils[-1].relative_camber_lower = 0.055, -0.006
         airfoils[-1].d2y_dx2_upper, airfoils[-1].d2y_dx2_lower = -0.35, -0.2
