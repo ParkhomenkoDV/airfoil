@@ -1,5 +1,5 @@
 import sys
-from numpy import array, zeros, linspace, sqrt, pi, linalg, tan
+from numpy import array, zeros, linspace, sqrt, tan
 from scipy.interpolate import BPoly
 import matplotlib.pyplot as plt
 
@@ -8,14 +8,14 @@ sys.path.append('D:/Programming/Python/scripts')
 from decorators import timeit
 
 
-def bezier_value(d1: float | int, d2: float | int, t: float | int) -> float:
-    """Вес Безье"""
-    return d1 + (d2 - d1) * t
-
-
 @timeit()
 def bezier_curve(points, N: int = 10):
     """Кривая Безье"""
+
+    def bezier_value(d1: float | int, d2: float | int, t: float | int) -> float:
+        """Вес Безье"""
+        return d1 + (d2 - d1) * t
+
     '''if type(points) is not array:
         print('points is not list');
         return
@@ -57,12 +57,13 @@ def bernstein_curve(points, N: int = 10):
 def show(*args, title='curve'):
     plt.title(title, fontsize=14)
     plt.grid(True)  # сетка
-    for points in args: plt.plot(*points.T, '-')
+    for points in args: plt.plot(*points.T, ls='solid')
+    plt.axis('equal')
     plt.show()
 
 
 if __name__ == '__main__':
-    points = [(0, 0), (0.05, 0.15), (0.4, 0.4), (1, 0)]
+    points = ((1, 0), (0.4, 0.4), (0.05, 0.15), (0, 0), (0.1, -0.1), (0.2, -0.1), (0.5, -0.05), (1, 0))
     points = array(points)
 
     bezier_points = bezier_curve(points, N=1000)
