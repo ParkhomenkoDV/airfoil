@@ -26,7 +26,8 @@ from curves import bernstein_curve
 
 sys.path.append('D:/Programming/Python/scripts')
 
-from tools import export2, COOR, Axis, angle, eps, dist, dist2line, isiter, derivative, line_coefs, tan2cos
+from tools import export2, coordinate_intersection_lines, Axis, angle, eps, dist, dist2line, isiter, derivative, \
+    line_coefs, tan2cos
 from decorators import timeit, warns
 
 
@@ -159,14 +160,14 @@ class Airfoil:
                    'aliases': ('BEZIER', 'БЕЗЬЕ'),
                    'attributes': {}},
         'MANUAL': {'description': '',
-                   'aliases': ('MANUAL', 'ВРУЧНУЮ'),
+                   'aliases': ('MANUAL', 'SPLINE', 'ВРУЧНУЮ'),
                    'attributes': {
                        'upper': {},
                        'lower': {},
                        'deg': {
                            'description': 'степень интерполяции полинома',
                            'unit': '[]',
-                           'bounds': f'[1, {max(len(), len()) - 1}]',
+                           'bounds': f'[1, {max(len([1, 2, 3]), len([4, 5, 6])) - 1}]',
                            'type': (int, np.int_), }
                    }}, }
     __relative_step = 1.0  # дефолтный относительный шаг []
@@ -417,44 +418,50 @@ class Airfoil:
         O_outlet = 1 - self.relative_outlet_radius, -k_outlet * self.relative_outlet_radius
 
         # точки пересечения линий спинки и корыта
-        xcl_u, ycl_u = COOR(tan(atan(k_inlet) + g_u_inlet),
-                            sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.relative_inlet_radius -
-                            (tan(atan(k_inlet) + g_u_inlet)) * O_inlet[0] - (-1) * O_inlet[1],
-                            tan(atan(k_outlet) - g_u_outlet),
-                            sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.relative_outlet_radius -
-                            (tan(atan(k_outlet) - g_u_outlet)) * O_outlet[0] - (-1) * O_outlet[1])
+        xcl_u, ycl_u = coordinate_intersection_lines(
+            (tan(atan(k_inlet) + g_u_inlet), -1,
+             sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.relative_inlet_radius -
+             (tan(atan(k_inlet) + g_u_inlet)) * O_inlet[0] - (-1) * O_inlet[1]),
+            (tan(atan(k_outlet) - g_u_outlet), -1,
+             sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.relative_outlet_radius -
+             (tan(atan(k_outlet) - g_u_outlet)) * O_outlet[0] - (-1) * O_outlet[1]))
 
-        xcl_d, ycl_d = COOR(tan(atan(k_inlet) - g_d_inlet),
-                            -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.relative_inlet_radius -
-                            (tan(atan(k_inlet) - g_d_inlet)) * O_inlet[0] - (-1) * O_inlet[1],
-                            tan(atan(k_outlet) + g_d_outlet),
-                            -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.relative_outlet_radius -
-                            (tan(atan(k_outlet) + g_d_outlet)) * O_outlet[0] - (-1) * O_outlet[1])
+        xcl_d, ycl_d = coordinate_intersection_lines(
+            (tan(atan(k_inlet) - g_d_inlet), -1,
+             -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.relative_inlet_radius -
+             (tan(atan(k_inlet) - g_d_inlet)) * O_inlet[0] - (-1) * O_inlet[1]),
+            (tan(atan(k_outlet) + g_d_outlet), -1,
+             -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.relative_outlet_radius -
+             (tan(atan(k_outlet) + g_d_outlet)) * O_outlet[0] - (-1) * O_outlet[1]))
 
         # точки пересечения окружностей со спинкой и корытом
-        xclc_i_u, yclc_i_u = COOR(tan(atan(k_inlet) + g_u_inlet),
-                                  sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.relative_inlet_radius
-                                  - (tan(atan(k_inlet) + g_u_inlet)) * O_inlet[0] - (-1) * O_inlet[1],
-                                  -1 / (tan(atan(k_inlet) + g_u_inlet)),
-                                  -(-1 / tan(atan(k_inlet) + g_u_inlet)) * O_inlet[0] - (-1) * O_inlet[1])
+        xclc_i_u, yclc_i_u = coordinate_intersection_lines(
+            (tan(atan(k_inlet) + g_u_inlet), -1,
+             sqrt(tan(atan(k_inlet) + g_u_inlet) ** 2 + 1) * self.relative_inlet_radius
+             - (tan(atan(k_inlet) + g_u_inlet)) * O_inlet[0] - (-1) * O_inlet[1]),
+            (-1 / (tan(atan(k_inlet) + g_u_inlet)), -1,
+             -(-1 / tan(atan(k_inlet) + g_u_inlet)) * O_inlet[0] - (-1) * O_inlet[1]))
 
-        xclc_i_d, yclc_i_d = COOR(tan(atan(k_inlet) - g_d_inlet),
-                                  -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.relative_inlet_radius
-                                  - (tan(atan(k_inlet) - g_d_inlet)) * O_inlet[0] - (-1) * O_inlet[1],
-                                  -1 / (tan(atan(k_inlet) - g_d_inlet)),
-                                  -(-1 / tan(atan(k_inlet) - g_d_inlet)) * O_inlet[0] - (-1) * O_inlet[1])
+        xclc_i_d, yclc_i_d = coordinate_intersection_lines(
+            (tan(atan(k_inlet) - g_d_inlet), -1,
+             -sqrt(tan(atan(k_inlet) - g_d_inlet) ** 2 + 1) * self.relative_inlet_radius
+             - (tan(atan(k_inlet) - g_d_inlet)) * O_inlet[0] - (-1) * O_inlet[1]),
+            (-1 / (tan(atan(k_inlet) - g_d_inlet)), -1,
+             -(-1 / tan(atan(k_inlet) - g_d_inlet)) * O_inlet[0] - (-1) * O_inlet[1]))
 
-        xclc_e_u, yclc_e_u = COOR(tan(atan(k_outlet) - g_u_outlet),
-                                  sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.relative_outlet_radius
-                                  - tan(atan(k_outlet) - g_u_outlet) * O_outlet[0] - (-1) * O_outlet[1],
-                                  -1 / tan(atan(k_outlet) - g_u_outlet),
-                                  -(-1 / tan(atan(k_outlet) - g_u_outlet)) * O_outlet[0] - (-1) * O_outlet[1])
+        xclc_e_u, yclc_e_u = coordinate_intersection_lines(
+            (tan(atan(k_outlet) - g_u_outlet), -1,
+             sqrt(tan(atan(k_outlet) - g_u_outlet) ** 2 + 1) * self.relative_outlet_radius
+             - tan(atan(k_outlet) - g_u_outlet) * O_outlet[0] - (-1) * O_outlet[1]),
+            (-1 / tan(atan(k_outlet) - g_u_outlet), -1,
+             -(-1 / tan(atan(k_outlet) - g_u_outlet)) * O_outlet[0] - (-1) * O_outlet[1]))
 
-        xclc_e_d, yclc_e_d = COOR(tan(atan(k_outlet) + g_d_outlet),
-                                  -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.relative_outlet_radius
-                                  - tan(atan(k_outlet) + g_d_outlet) * O_outlet[0] - (-1) * O_outlet[1],
-                                  -1 / tan(atan(k_outlet) + g_d_outlet),
-                                  -(-1 / tan(atan(k_outlet) + g_d_outlet)) * O_outlet[0] - (-1) * O_outlet[1])
+        xclc_e_d, yclc_e_d = coordinate_intersection_lines(
+            (tan(atan(k_outlet) + g_d_outlet), -1,
+             -sqrt(tan(atan(k_outlet) + g_d_outlet) ** 2 + 1) * self.relative_outlet_radius
+             - tan(atan(k_outlet) + g_d_outlet) * O_outlet[0] - (-1) * O_outlet[1]),
+            (-1 / tan(atan(k_outlet) + g_d_outlet), -1,
+             -(-1 / tan(atan(k_outlet) + g_d_outlet)) * O_outlet[0] - (-1) * O_outlet[1]))
 
         x, y = list(), list()
 
@@ -737,7 +744,8 @@ class Airfoil:
         CC1u, CC1l = np.mean((y1, y1u)) - AA1u * np.mean((x1, x1u)), np.mean((y1, y1l)) - AA1l * np.mean((x1, x1l))
 
         # центры входной и выходной окружностей
-        O_inlet, O_outlet = COOR(AA0u, CC0u, AA0l, CC0l), COOR(AA1u, CC1u, AA1l, CC1l)
+        O_inlet = coordinate_intersection_lines((AA0u, -1, CC0u), (AA0l, -1, CC0l))
+        O_outlet = coordinate_intersection_lines((AA1u, -1, CC1u), (AA1l, -1, CC1l))
         if not (0.0 <= O_inlet[0] <= 0.5) or not (Fl(O_inlet[0]) <= O_inlet[1] <= Fu(O_inlet[0])):
             O_inlet = (nan, nan)
         if not (0.5 <= O_outlet[0] <= 1.0) or not (Fl(O_outlet[0]) <= O_outlet[1] <= Fu(O_outlet[0])):
@@ -995,7 +1003,7 @@ def test() -> None:
 
     airfoils = list()
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('BMSTU', 30, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].rotation_angle = radians(110)
@@ -1004,7 +1012,7 @@ def test() -> None:
         airfoils[-1].x_ray_cross = 0.4
         airfoils[-1].upper_proximity = 0.5
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('NACA', 40, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].relative_thickness = 0.2
@@ -1012,12 +1020,12 @@ def test() -> None:
         airfoils[-1].relative_camber = 0.05
         airfoils[-1].closed = True
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('MYNK', 20, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].mynk_coefficient = 0.2
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('PARSEC', 50, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].relative_inlet_radius = 0.06
