@@ -26,8 +26,8 @@ from curves import bernstein_curve
 
 sys.path.append('D:/Programming/Python/scripts')
 
-from tools import export2, coordinate_intersection_lines, Axis, angle, eps, dist, dist2line, isiter, derivative, \
-    line_coefs, tan2cos
+from tools import export2, isiter, derivative
+from tools import coordinate_intersection_lines, Axis, angle, distance, distance2line, line_coefficients, tan2cos
 from decorators import timeit, warns
 
 
@@ -162,12 +162,20 @@ class Airfoil:
         'MANUAL': {'description': '',
                    'aliases': ('MANUAL', 'SPLINE', 'ВРУЧНУЮ'),
                    'attributes': {
-                       'upper': {},
-                       'lower': {},
+                       'upper': {
+                           'description': 'координаты спинки',
+                           'unit': '[]',
+                           'bounds': '[0, 1]',
+                           'type': (int, float, np.number), },
+                       'lower': {
+                           'description': 'координаты корыта',
+                           'unit': '[]',
+                           'bounds': '[0, 1]',
+                           'type': (int, float, np.number), },
                        'deg': {
                            'description': 'степень интерполяции полинома',
                            'unit': '[]',
-                           'bounds': f'[1, {max(len([1, 2, 3]), len([4, 5, 6])) - 1}]',
+                           'bounds': f'[1, 3]',
                            'type': (int, np.int_), }
                    }}, }
     __relative_step = 1.0  # дефолтный относительный шаг []
@@ -731,10 +739,10 @@ class Airfoil:
         x1l = x1 - dl * tan2cos(derivative(Fl, x1, method='backward', dx=dl))
         y0l, y1l = Fl(x0l), Fl(x1l)
 
-        A0u, B0u, C0u = line_coefs(p1=(x0, y0), p2=(x0u, y0u))
-        A0l, B0l, C0l = line_coefs(p1=(x0, y0), p2=(x0l, y0l))
-        A1u, B1u, C1u = line_coefs(p1=(x1, y1), p2=(x1u, y1u))
-        A1l, B1l, C1l = line_coefs(p1=(x1, y1), p2=(x1l, y1l))
+        A0u, B0u, C0u = line_coefficients(p1=(x0, y0), p2=(x0u, y0u))
+        A0l, B0l, C0l = line_coefficients(p1=(x0, y0), p2=(x0l, y0l))
+        A1u, B1u, C1u = line_coefficients(p1=(x1, y1), p2=(x1u, y1u))
+        A1l, B1l, C1l = line_coefficients(p1=(x1, y1), p2=(x1l, y1l))
 
         # коэффициент A для перпендикуляров
         AA0u, AA0l = -1 / A0u if A0u != 0 else -inf, -1 / A0l if A0l != 0 else -inf
@@ -922,14 +930,14 @@ class Airfoil:
             x.append(X)
         x = array(x + [xgmax])
 
-        Au, _, Cu = line_coefs(func=self.__Fl, x0=x)
+        Au, _, Cu = line_coefficients(func=self.__Fl, x0=x)
 
         def equations(vars, *args):
             """СНЛАУ"""
             x0, y0, r0, xl = vars
             xu, yu, Au, Cu = args
 
-            Al, _, Cl = line_coefs(func=Fu, x0=xl)
+            Al, _, Cl = line_coefficients(func=Fu, x0=xl)
 
             return [abs(Au * x0 + (-1) * y0 + Cu) / sqrt(Au ** 2 + 1) - r0,  # расстояние от точки окружности
                     ((xu - x0) ** 2 + (yu - y0) ** 2) - r0 ** 2,  # до кривой корыта
@@ -955,7 +963,7 @@ class Airfoil:
         warnings.filterwarnings('default')
 
         r = zeros(len(d))
-        for i in range(1, len(d)): r[i] = r[i - 1] + dist((xd[i - 1], yd[i - 1]), (xd[i], yd[i]))
+        for i in range(1, len(d)): r[i] = r[i - 1] + distance((xd[i - 1], yd[i - 1]), (xd[i], yd[i]))
 
         self.__channel = array((xd, yd, d, r)).T
 
@@ -1043,8 +1051,8 @@ def test() -> None:
     if 1:
         airfoils.append(Airfoil('MANUAL', 30, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].u = ((0.0, 0.0), (0.10, 0.100), (0.35, 0.150), (0.5, 0.15), (1.0, 0.0))
-        airfoils[-1].l = ((0.0, 0.0), (0.05, -0.05), (0.35, -0.05), (0.5, 0.0), (1.0, 0.0))
+        airfoils[-1].upper = ((0.0, 0.0), (0.10, 0.100), (0.35, 0.150), (0.5, 0.15), (1.0, 0.0))
+        airfoils[-1].lower = ((0.0, 0.0), (0.05, -0.05), (0.35, -0.05), (0.5, 0.0), (1.0, 0.0))
         airfoils[-1].deg = 3
 
     for airfoil in airfoils:
