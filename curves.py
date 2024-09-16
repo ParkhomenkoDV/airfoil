@@ -1,5 +1,5 @@
 import sys
-from numpy import array, zeros, linspace, sqrt, tan
+from numpy import array, zeros, linspace
 from scipy.interpolate import BPoly
 import matplotlib.pyplot as plt
 
@@ -63,13 +63,13 @@ def show(*args, title='curve'):
 
 
 if __name__ == '__main__':
-    points = ((1, 0), (0.4, 0.4), (0.05, 0.15), (0, 0), (0.1, -0.1), (0.2, -0.1), (0.5, -0.05), (1, 0))
+    points = ((1, 0), (0.4, 0.4), (0.05, 0.15), (0, 0), (0.1, -0.1), (0.2, -0.1), (0.5, 0.15), (1, 0))
     points = array(points)
 
-    bezier_points = bezier_curve(points, N=1000)
+    bezier_points = bezier_curve(points, N=1_000)
     # print(bezier_points)
     show(points, bezier_points, title='Bezier curve')
 
-    bernstein_points = bernstein_curve(points, N=1000)
+    bernstein_points = bernstein_curve(points, N=1_000)
     # print(bernstein_points)
     show(points, bernstein_points, title='Bernstein curve')
