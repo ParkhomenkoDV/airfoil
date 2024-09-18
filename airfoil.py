@@ -158,34 +158,51 @@ class Airfoil:
                            'type': (int, float, np.number), }, }},
         'BEZIER': {'description': '',
                    'aliases': ('BEZIER', 'БЕЗЬЕ'),
-                   'attributes': {}},
+                   'attributes': {
+                       'points': {
+                           'description': 'координаты полюсов',
+                           'unit': '[]',
+                           'bounds': '[_, _]',
+                           'type': (tuple, list, np.ndarray), }}},
         'MANUAL': {'description': '',
                    'aliases': ('MANUAL', 'SPLINE', 'ВРУЧНУЮ'),
                    'attributes': {
                        'upper': {
                            'description': 'координаты спинки',
                            'unit': '[]',
-                           'bounds': '[0, 1]',
-                           'type': (int, float, np.number), },
+                           'bounds': '[_, _]',
+                           'type': (tuple, list, np.ndarray), },
                        'lower': {
                            'description': 'координаты корыта',
                            'unit': '[]',
-                           'bounds': '[0, 1]',
-                           'type': (int, float, np.number), },
+                           'bounds': '[_, _]',
+                           'type': (tuple, list, np.ndarray), },
                        'deg': {
                            'description': 'степень интерполяции полинома',
                            'unit': '[]',
                            'bounds': f'[1, 3]',
                            'type': (int, np.int_), }
-                   }}, }
+                   }},
+        'CIRCLE': {
+            'description': '',
+            'aliases': ('CIRCLE', 'ОКРУЖНОСТЬ',),
+            'attributes': {
+                'relative_channel': '',
+                'unit': '[]',
+                'bounds': '(_, _)',
+                'type': (tuple, list, np.ndarray)
+            }
+        }}
     __relative_step = 1.0  # дефолтный относительный шаг []
     __gamma = 0.0  # дефолтный угол установки [рад]
 
     @classmethod
+    @property
     def __version__(cls):
         version = '3.0'
         print('help')
         print('Продувка')
+        return version
 
     # TODO
     @classmethod
@@ -245,12 +262,14 @@ class Airfoil:
         if gamma is not None:
             assert isinstance(gamma, (float, int, np.number)) and -pi / 2 <= gamma <= pi / 2
 
-        def validate_points(points) -> None:
+        def validate_points(points: tuple | list | np.ndarray) -> None:
             """Проверка двумерного массива точек"""
-            assert isiter(points)  # проверка на итератор
-            assert all(map(isiter, points))  # проверка элементов итератора на итератор
-            assert all(len(el) == 2 for el in points)  # проверка длин элементов итератора
-            assert all(isinstance(el, (int, float)) for itr in points for el in itr)  # проверка типов элементов
+            assert isinstance(points, (tuple, list, np.ndarray))  # тип массива координат
+            assert len(points) >= 2  # количество кооринат
+            assert all(isinstance(coord, (tuple, list, np.ndarray)) for coord in points)  # тип координаты
+            assert all(len(coord) == 2 for coord in points)  # проверка длин элементов итератора
+            assert all(isinstance(x, (int, float, np.number)) and isinstance(y, (int, float, np.number))
+                       for x, y in points)  # проверка типов элементов
 
         if hasattr(self, '_Airfoil__method'):
             for attr in Airfoil.__methods[self.__method]['attributes']:
@@ -292,15 +311,13 @@ class Airfoil:
                             assert getattr(self, attr) <= float(u[:-1]), f'attribute "{attr}" <= {float(u[:-1])}'
 
             if self.__method in Airfoil.__methods['BEZIER']['aliases']:
-                assert hasattr(self, 'u') and hasattr(self, 'l')
-                validate_points(self.u)
-                validate_points(self.l)
+                validate_points(self.points)
 
             elif self.__method in Airfoil.__methods['MANUAL']['aliases']:
-                assert hasattr(self, 'u') and hasattr(self, 'l')
-                validate_points(self.u)
-                validate_points(self.l)
-                assert hasattr(self, 'deg') and isinstance(self.deg, int) and 0 <= self.deg <= 3
+                validate_points(self.upper)
+                validate_points(self.lower)
+                assert all(0 <= x <= 1 for x, _ in self.upper)
+                assert all(0 <= x <= 1 for x, _ in self.lower)
 
     def __init__(self, method: str, discreteness: int = __discreteness,
                  relative_step: float | int = __relative_step, gamma: float | int = __gamma, **attributes):
@@ -571,7 +588,7 @@ class Airfoil:
 
         coordinates = self.__transform(tuple(((x, y) for x, y in zip(X, Y))), angle=angle)  # поворот
         x, _ = array(coordinates).T
-        return self.__transform(coordinates, x0=x.min(), scale=1 / (x.max() - x.min()))  # нормализация
+        return self.__transform(coordinates, x0=x.min(), scale=(1 / (x.max() - x.min())))  # нормализация
 
     def __parsec(self) -> tuple[tuple[float, float], ...]:
         """
@@ -632,29 +649,24 @@ class Airfoil:
         return tuple((x, y) for x, y in zip(X, Y))
 
     def __bezier(self) -> tuple[tuple[float, float], ...]:
-        if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
-        if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
-
-        self.coordinates['u']['x'], self.coordinates['u']['y'] = bernstein_curve(self.u, N=self.__N).T
-        self.coordinates['l']['x'], self.coordinates['l']['y'] = bernstein_curve(self.l, N=self.__N).T
-
-        self.__O_inlet, self.relative_inlet_radius = (0, 0), 0
-        self.__O_outlet, self.relative_outlet_radius = (1, 0), 0
+        X, Y = bernstein_curve(self.points, N=self.__discreteness).T
+        xargmin, xargmax = np.argmin(X), np.argmax(X)
+        angle = atan((Y[xargmax] - Y[xargmin]) / (X[xargmax] - X[xargmin]))  # угол поворота
+        coordinates = self.__transform(tuple(((x, y) for x, y in zip(X, Y))), angle=angle)  # поворот
+        x, y = array(coordinates).T
+        return self.__transform(coordinates, x0=x.min(), y0=y[0], scale=(1 / (x.max() - x.min())))  # нормализация
 
     def __manual(self) -> tuple[tuple[float, float], ...]:
-        if not any(p[0] == 0 for p in self.u): self.u = list(self.u) + [(0, 0)]
-        if not any(p[0] == 1 for p in self.u): self.u = list(self.u) + [(1, 0)]
+        xu, yu = array(self.upper, dtype='float64').T
+        xl, yl = array(self.lower, dtype='float64').T
 
-        x = linspace(0, 1, self.__discreteness)
-        self.coordinates['u']['x'], self.coordinates['u']['y'] = x, interpolate.interp1d([p[0] for p in self.u],
-                                                                                         [p[1] for p in self.u],
-                                                                                         kind=self.deg)(x)
-        self.coordinates['l']['x'], self.coordinates['l']['y'] = x, interpolate.interp1d([p[0] for p in self.l],
-                                                                                         [p[1] for p in self.l],
-                                                                                         kind=self.deg)(x)
+        fu, fl = interpolate.interp1d(xu, yu, kind=self.deg), interpolate.interp1d(xl, yl, kind=self.deg)
+        X = linspace(0, 1, self.__discreteness, endpoint=True)
+        coordinates = [(x, y) for x, y in zip(X[::-1], fu(X[::-1]))] + [(x, y) for x, y in zip(X[1::], fl(X[1::]))]
+        return tuple(coordinates)
 
-        self.__O_inlet, self.relative_inlet_radius = (0, 0), 0
-        self.__O_outlet, self.relative_outlet_radius = (1, 0), 0
+    def __circle(self) -> tuple[tuple[float, float], ...]:
+        pass
 
     @timeit()
     def __calculate(self) -> tuple[tuple[float, float], ...]:
@@ -676,8 +688,10 @@ class Airfoil:
             self.__relative_inlet_radius, self.__relative_outlet_radius = 0, 0
         elif self.method in Airfoil.__methods['BEZIER']['aliases']:
             self.__coordinates0 = self.__bezier()
+            self.__relative_inlet_radius, self.__relative_outlet_radius = 0, 0
         elif self.method in Airfoil.__methods['MANUAL']['aliases']:
             self.__coordinates0 = self.__manual()
+            self.__relative_inlet_radius, self.__relative_outlet_radius = 0, 0
         else:
             print(Fore.RED + f'No such method {self.method}! Use Airfoil.help' + Fore.RESET)
 
@@ -1002,7 +1016,7 @@ class Airfoil:
 
 def test() -> None:
     """Тестирование"""
-    print(Airfoil.__version__())
+    print(Airfoil.__version__)
 
     Airfoil.help()
 
@@ -1011,7 +1025,7 @@ def test() -> None:
 
     airfoils = list()
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('BMSTU', 30, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].rotation_angle = radians(110)
@@ -1020,7 +1034,7 @@ def test() -> None:
         airfoils[-1].x_ray_cross = 0.4
         airfoils[-1].upper_proximity = 0.5
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('NACA', 40, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].relative_thickness = 0.2
@@ -1028,12 +1042,12 @@ def test() -> None:
         airfoils[-1].relative_camber = 0.05
         airfoils[-1].closed = True
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('MYNK', 20, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].mynk_coefficient = 0.2
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('PARSEC', 50, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].relative_inlet_radius = 0.06
@@ -1042,18 +1056,26 @@ def test() -> None:
         airfoils[-1].d2y_dx2_upper, airfoils[-1].d2y_dx2_lower = -0.35, -0.2
         airfoils[-1].theta_outlet_upper, airfoils[-1].theta_outlet_lower = radians(-6), radians(0.05)
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('BEZIER', 30, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].u = ((0.0, 0.0), (0.05, 0.100), (0.35, 0.200), (1.0, 0.0))
-        airfoils[-1].l = ((0.0, 0.0), (0.05, -0.10), (0.35, -0.05), (0.5, 0.0), (1.0, 0.0))
+        airfoils[-1].points = ((1.0, 0.0), (0.35, 0.200), (0.05, 0.100),
+                               (0.0, 0.0),
+                               (0.05, -0.10), (0.35, -0.05), (0.5, 0.0), (1.0, 0.0),)
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('MANUAL', 30, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].upper = ((0.0, 0.0), (0.10, 0.100), (0.35, 0.150), (0.5, 0.15), (1.0, 0.0))
-        airfoils[-1].lower = ((0.0, 0.0), (0.05, -0.05), (0.35, -0.05), (0.5, 0.0), (1.0, 0.0))
+        airfoils[-1].upper = ((0.0, 0.0), (0.05, 0.08), (0.10, 0.110), (0.35, 0.150), (0.5, 0.15), (1.0, 0.0))
+        airfoils[-1].lower = ((0.0, 0.0), (0.05, -0.025), (0.35, -0.025), (0.5, 0.0), (0.8, 0.025), (1.0, 0.0))
         airfoils[-1].deg = 3
+
+    if 1:
+        airfoils.append(Airfoil('CHANNEL', 60, 1 / 1.698, radians(46.23)))
+
+        airfoils[-1].relative_channel = (
+            (0.0, 0.0), (0.05, 0.08), (0.10, 0.110), (0.35, 0.150), (0.5, 0.15), (1.0, 0.0))
+        airfoils[-1].
 
     for airfoil in airfoils:
         airfoil.show()
