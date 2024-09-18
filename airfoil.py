@@ -30,6 +30,28 @@ from tools import export2, isiter, derivative
 from tools import coordinate_intersection_lines, Axis, angle, distance, distance2line, line_coefficients, tan2cos
 from decorators import timeit, warns
 
+# словарь терминов их описания, единицы измерения и граничные значения
+vocabulary = {
+    'rotation_angle': {
+        'description': 'угол поворота потока',
+        'unit': '[рад]',
+        'bounds': f'(0, {radians(180)}]',
+        'type': (int, float, np.number),
+        'assert': None, },
+    'relative_inlet_radius': {
+        'description': 'относительный радиус входной кромки',
+        'unit': '[]',
+        'bounds': '[0, 1)',
+        'type': (float, np.floating),
+        'assert': None, },
+    'relative_outlet_radius': {
+        'description': 'относительный радиус выходной кромки',
+        'unit': '[]',
+        'bounds': '[0, 1)',
+        'type': (float, np.floating),
+        'assert': None, },
+}
+
 
 class Airfoil:
     """Относительный аэродинамический профиль"""
@@ -42,21 +64,9 @@ class Airfoil:
             'description': '',
             'aliases': ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'),
             'attributes': {
-                'rotation_angle': {
-                    'description': 'угол поворота потока',
-                    'unit': '[рад]',
-                    'bounds': f'(0, {radians(180)}]',
-                    'type': (int, float, np.number)},
-                'relative_inlet_radius': {
-                    'description': 'относительный радиус входной кромки',
-                    'unit': '[]',
-                    'bounds': '[0, 1)',
-                    'type': (float, np.floating)},
-                'relative_outlet_radius': {
-                    'description': 'относительный радиус выходной кромки',
-                    'unit': '[]',
-                    'bounds': '[0, 1)',
-                    'type': (float, np.floating)},
+                'rotation_angle': vocabulary['rotation_angle'],
+                'relative_inlet_radius': vocabulary['relative_inlet_radius'],
+                'relative_outlet_radius': vocabulary['relative_outlet_radius'],
                 'inlet_angle': {
                     'description': 'угол раскрытия входной кромки',
                     'unit': '[рад]',
@@ -1075,7 +1085,7 @@ def test() -> None:
 
         airfoils[-1].relative_channel = (
             (0.0, 0.0), (0.05, 0.08), (0.10, 0.110), (0.35, 0.150), (0.5, 0.15), (1.0, 0.0))
-        airfoils[-1].
+        airfoils[-1].is_airfoil = True
 
     for airfoil in airfoils:
         airfoil.show()
