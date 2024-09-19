@@ -50,6 +50,120 @@ vocabulary = {
         'bounds': '[0, 1)',
         'type': (float, np.floating),
         'assert': None, },
+    'closed': {
+        'description': 'замкнутость профиля',
+        'unit': '[]',
+        'bounds': '{False, True}',
+        'type': (bool,),
+        'assert': None, },
+    'inlet_angle': {
+        'description': 'угол раскрытия входной кромки',
+        'unit': '[рад]',
+        'bounds': f'[0, {radians(180)})',
+        'type': (int, float, np.number),
+        'assert': None, },
+    'outlet_angle': {
+        'description': 'угол раскрытия выходной кромки',
+        'unit': '[рад]',
+        'bounds': f'[0, {radians(180)})',
+        'type': (int, float, np.number),
+        'assert': None, },
+    'x_ray_cross': {
+        'description': 'относительная координата х пересечения входного и выходного лучей',
+        'unit': '[]',
+        'bounds': '(0, 1)',
+        'type': (float, np.floating),
+        'assert': None, },
+    'upper_proximity': {
+        'description': 'степень приближенности к спинке',
+        'unit': '[]',
+        'bounds': '[0, 1]',
+        'type': (int, float, np.number),
+        'assert': None, },
+    'relative_thickness': {
+        'description': 'максимальная относительная толщина',
+        'unit': '[]',
+        'bounds': '[0, 1)',
+        'type': (int, float, np.number),
+        'assert': None, },
+    'x_relative_camber': {
+        'description': 'относительна координата х максимальной выпуклости',
+        'unit': '[]',
+        'bounds': '(0, 1)',
+        'type': (float, np.floating),
+        'assert': None, },
+    'relative_camber': {
+        'description': 'относительная максимальная выпуклость',
+        'unit': '[]',
+        'bounds': '[0, 1)',
+        'type': (int, float, np.number),
+        'assert': None, },
+    'mynk_coefficient': {
+        'description': 'коэффициент Мунка',
+        'unit': '[]',
+        'bounds': '[0, _)',
+        'type': (int, float, np.number),
+        'assert': None, },
+    'x_relative_camber_upper': {
+        'description': 'относительна координата х максимальной выпуклости спинки',
+        'unit': '[]',
+        'bounds': '(0, 1)',
+        'type': (float, np.floating), },
+    'x_relative_camber_lower': {
+        'description': 'относительна координата х максимальной выпуклости корыта',
+        'unit': '[]',
+        'bounds': '(0, 1)',
+        'type': (float, np.floating), },
+    'relative_camber_upper': {
+        'description': 'максимальная относительная толщина спинки относительно оси х',
+        'unit': '[]',
+        'bounds': '(-1, 1)',
+        'type': (int, float, np.number), },
+    'relative_camber_lower': {
+        'description': 'максимальная относительная толщина корыта относительно оси х',
+        'unit': '[]',
+        'bounds': '(-1, 1)',
+        'type': (int, float, np.number), },
+    'd2y_dx2_upper': {
+        'description': 'кривизна спинки (вторая производная поверхности)',
+        'unit': '[]',
+        'bounds': '(_, _)',
+        'type': (int, float, np.number), },
+    'd2y_dx2_lower': {
+        'description': 'кривизна корыта (вторая производная поверхности)',
+        'unit': '[]',
+        'bounds': '(_, _)',
+        'type': (int, float, np.number), },
+    'theta_outlet_upper': {
+        'description': 'угол выхода между поверхностью спинки и горизонталью',
+        'unit': '[]',
+        'bounds': f'(-{radians(90)}, {radians(90)})',
+        'type': (int, float, np.number), },
+    'theta_outlet_lower': {
+        'description': 'угол выхода между поверхностью корыта и горизонталью',
+        'unit': '[рад]',
+        'bounds': f'(-{radians(90)}, {radians(90)})',
+        'type': (int, float, np.number), },
+    'points': {
+        'description': 'координаты полюсов',
+        'unit': '[]',
+        'bounds': '[_, _]',
+        'type': (tuple, list, np.ndarray), },
+    'upper': {
+        'description': 'координаты спинки',
+        'unit': '[]',
+        'bounds': '[_, _]',
+        'type': (tuple, list, np.ndarray), },
+    'lower': {
+        'description': 'координаты корыта',
+        'unit': '[]',
+        'bounds': '[_, _]',
+        'type': (tuple, list, np.ndarray), },
+    'deg': {
+        'description': 'степень интерполяции полинома',
+        'unit': '[]',
+        'bounds': f'[1, 3]',
+        'type': (int, np.int_), }
 }
 
 
@@ -67,142 +181,52 @@ class Airfoil:
                 'rotation_angle': vocabulary['rotation_angle'],
                 'relative_inlet_radius': vocabulary['relative_inlet_radius'],
                 'relative_outlet_radius': vocabulary['relative_outlet_radius'],
-                'inlet_angle': {
-                    'description': 'угол раскрытия входной кромки',
-                    'unit': '[рад]',
-                    'bounds': f'[0, {radians(180)})',
-                    'type': (int, float, np.number)},
-                'outlet_angle': {
-                    'description': 'угол раскрытия выходной кромки',
-                    'unit': '[рад]',
-                    'bounds': f'[0, {radians(180)})',
-                    'type': (int, float, np.number)},
-                'x_ray_cross': {
-                    'description': 'относительная координата х пересечения входного и выходного лучей',
-                    'unit': '[]',
-                    'bounds': '(0, 1)',
-                    'type': (float, np.floating)},
-                'upper_proximity': {
-                    'description': 'степень приближенности к спинке',
-                    'unit': '[]',
-                    'bounds': '[0, 1]',
-                    'type': (int, float, np.number)}}},
+                'inlet_angle': vocabulary['inlet_angle'],
+                'outlet_angle': vocabulary['outlet_angle'],
+                'x_ray_cross': vocabulary['x_ray_cross'],
+                'upper_proximity': vocabulary['upper_proximity']}},
         'NACA': {'description': '',
                  'aliases': ('NACA', 'N.A.C.A.'),
                  'attributes': {
-                     'relative_thickness': {
-                         'description': 'максимальная относительная толщина',
-                         'unit': '[]',
-                         'bounds': '[0, 1)',
-                         'type': (int, float, np.number)},
-                     'x_relative_camber': {
-                         'description': 'относительна координата х максимальной выпуклости',
-                         'unit': '[]',
-                         'bounds': '(0, 1)',
-                         'type': (float, np.floating)},
-                     'relative_camber': {
-                         'description': 'относительная максимальная выпуклость',
-                         'unit': '[]',
-                         'bounds': '[0, 1)',
-                         'type': (int, float, np.number)},
-                     'closed': {
-                         'description': 'замкнутость профиля',
-                         'unit': '[]',
-                         'bounds': '{False, True}',
-                         'type': (bool,)}}},
+                     'relative_thickness': vocabulary['relative_thickness'],
+                     'x_relative_camber': vocabulary['x_relative_camber'],
+                     'relative_camber': vocabulary['relative_camber'],
+                     'closed': vocabulary['closed'], }},
         'MYNK': {'description': '',
                  'aliases': ('MYNK', 'МУНК'),
                  'attributes': {
-                     'mynk_coefficient': {
-                         'description': 'коэффициент Мунка',
-                         'unit': '[]',
-                         'bounds': '[0, _)',
-                         'type': (int, float, np.number)}}},
+                     'mynk_coefficient': vocabulary['mynk_coefficient'], }},
         'PARSEC': {'description': '',
                    'aliases': ('PARSEC',),
                    'attributes': {
-                       'relative_inlet_radius': {
-                           'description': 'относительный радиус входной кромки',
-                           'unit': '[]',
-                           'bounds': '[0, 1)',
-                           'type': (float, np.floating)},
-                       'x_relative_camber_upper': {
-                           'description': 'относительна координата х максимальной выпуклости спинки',
-                           'unit': '[]',
-                           'bounds': '(0, 1)',
-                           'type': (float, np.floating), },
-                       'x_relative_camber_lower': {
-                           'description': 'относительна координата х максимальной выпуклости корыта',
-                           'unit': '[]',
-                           'bounds': '(0, 1)',
-                           'type': (float, np.floating), },
-                       'relative_camber_upper': {
-                           'description': 'максимальная относительная толщина спинки относительно оси х',
-                           'unit': '[]',
-                           'bounds': '(-1, 1)',
-                           'type': (int, float, np.number), },
-                       'relative_camber_lower': {
-                           'description': 'максимальная относительная толщина корыта относительно оси х',
-                           'unit': '[]',
-                           'bounds': '(-1, 1)',
-                           'type': (int, float, np.number), },
-                       'd2y_dx2_upper': {
-                           'description': 'кривизна спинки (вторая производная поверхности)',
-                           'unit': '[]',
-                           'bounds': '(_, _)',
-                           'type': (int, float, np.number), },
-                       'd2y_dx2_lower': {
-                           'description': 'кривизна корыта (вторая производная поверхности)',
-                           'unit': '[]',
-                           'bounds': '(_, _)',
-                           'type': (int, float, np.number), },
-                       'theta_outlet_upper': {
-                           'description': 'угол выхода между поверхностью спинки и горизонталью',
-                           'unit': '[]',
-                           'bounds': f'(-{radians(90)}, {radians(90)})',
-                           'type': (int, float, np.number), },
-                       'theta_outlet_lower': {
-                           'description': 'угол выхода между поверхностью корыта и горизонталью',
-                           'unit': '[рад]',
-                           'bounds': f'(-{radians(90)}, {radians(90)})',
-                           'type': (int, float, np.number), }, }},
+                       'relative_inlet_radius': vocabulary['relative_inlet_radius'],
+                       'x_relative_camber_upper': vocabulary['x_relative_camber_upper'],
+                       'x_relative_camber_lower': vocabulary['x_relative_camber_lower'],
+                       'relative_camber_upper': vocabulary['relative_camber_upper'],
+                       'relative_camber_lower': vocabulary['relative_camber_lower'],
+                       'd2y_dx2_upper': vocabulary['d2y_dx2_upper'],
+                       'd2y_dx2_lower': vocabulary['d2y_dx2_lower'],
+                       'theta_outlet_upper': vocabulary['theta_outlet_upper'],
+                       'theta_outlet_lower': vocabulary['theta_outlet_lower'], }},
         'BEZIER': {'description': '',
                    'aliases': ('BEZIER', 'БЕЗЬЕ'),
                    'attributes': {
-                       'points': {
-                           'description': 'координаты полюсов',
-                           'unit': '[]',
-                           'bounds': '[_, _]',
-                           'type': (tuple, list, np.ndarray), }}},
+                       'points': vocabulary['points'], }},
         'MANUAL': {'description': '',
                    'aliases': ('MANUAL', 'SPLINE', 'ВРУЧНУЮ'),
                    'attributes': {
-                       'upper': {
-                           'description': 'координаты спинки',
+                       'upper': vocabulary['upper'],
+                       'lower': vocabulary['lower'],
+                       'deg': vocabulary['deg'], }},
+        'CIRCLE': {'description': '',
+                   'aliases': ('CIRCLE', 'ОКРУЖНОСТЬ',),
+                   'attributes': {
+                       'relative_circles': {
+                           'description': '',
                            'unit': '[]',
-                           'bounds': '[_, _]',
-                           'type': (tuple, list, np.ndarray), },
-                       'lower': {
-                           'description': 'координаты корыта',
-                           'unit': '[]',
-                           'bounds': '[_, _]',
-                           'type': (tuple, list, np.ndarray), },
-                       'deg': {
-                           'description': 'степень интерполяции полинома',
-                           'unit': '[]',
-                           'bounds': f'[1, 3]',
-                           'type': (int, np.int_), }
-                   }},
-        'CIRCLE': {
-            'description': '',
-            'aliases': ('CIRCLE', 'ОКРУЖНОСТЬ',),
-            'attributes': {
-                'relative_channel': '',
-                'unit': '[]',
-                'bounds': '(_, _)',
-                'type': (tuple, list, np.ndarray)
-            }
-        }}
+                           'bounds': '(_, _)',
+                           'type': (tuple, list, np.ndarray), }, }
+                   }}
     __relative_step = 1.0  # дефолтный относительный шаг []
     __gamma = 0.0  # дефолтный угол установки [рад]
 
@@ -418,26 +442,28 @@ class Airfoil:
         pass
 
     def __bmstu(self) -> tuple[tuple[float, float], ...]:
+        airfoil_rotation_angle = pi - self.rotation_angle  # угол поворота профиля
+
         # tan угла входа и выхода потока
-        k_inlet = 1 / (2 * self.x_ray_cross / (self.x_ray_cross - 1) * tan(self.rotation_angle))
-        k_outlet = 1 / (2 * tan(self.rotation_angle))
-        if tan(self.rotation_angle) * self.rotation_angle > 0:
+        k_inlet = 1 / (2 * self.x_ray_cross / (self.x_ray_cross - 1) * tan(airfoil_rotation_angle))
+        k_outlet = 1 / (2 * tan(airfoil_rotation_angle))
+        if tan(airfoil_rotation_angle) * airfoil_rotation_angle > 0:
             k_inlet *= ((self.x_ray_cross / (self.x_ray_cross - 1) - 1) -
                         sqrt((self.x_ray_cross / (self.x_ray_cross - 1) - 1) ** 2 -
-                             4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(self.rotation_angle) ** 2)))
+                             4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(airfoil_rotation_angle) ** 2)))
             k_outlet *= ((self.x_ray_cross / (self.x_ray_cross - 1) - 1) -
                          sqrt((self.x_ray_cross / (self.x_ray_cross - 1) - 1) ** 2 -
-                              4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(self.rotation_angle) ** 2)))
+                              4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(airfoil_rotation_angle) ** 2)))
         else:
             k_inlet *= ((self.x_ray_cross / (self.x_ray_cross - 1) - 1) +
                         sqrt((self.x_ray_cross / (self.x_ray_cross - 1) - 1) ** 2 -
-                             4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(self.rotation_angle) ** 2)))
+                             4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(airfoil_rotation_angle) ** 2)))
             k_outlet *= ((self.x_ray_cross / (self.x_ray_cross - 1) - 1) +
                          sqrt((self.x_ray_cross / (self.x_ray_cross - 1) - 1) ** 2 -
-                              4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(self.rotation_angle) ** 2)))
+                              4 * (self.x_ray_cross / (self.x_ray_cross - 1) * tan(airfoil_rotation_angle) ** 2)))
 
         # углы входа и выхода профиля
-        if self.rotation_angle > 0:
+        if airfoil_rotation_angle > 0:
             g_u_inlet, g_d_inlet = ((1 - self.upper_proximity) *
                                     self.inlet_angle, self.upper_proximity * self.inlet_angle)
             g_u_outlet, g_d_outlet = ((1 - self.upper_proximity) *
@@ -676,7 +702,47 @@ class Airfoil:
         return tuple(coordinates)
 
     def __circle(self) -> tuple[tuple[float, float], ...]:
-        pass
+
+        A_outlet, C_outlet = tan(-self.rotation_angle), -tan(-self.rotation_angle) * self.x_ray_cross
+
+        y_outlet = A_outlet * 1 + C_outlet  # y выхода
+
+        x_av, y_av = bernstein_curve(((0, 0), (self.x_ray_cross, 0), (1, y_outlet)), N=self.__discreteness).T
+
+        f_av = interpolate.interp1d(x_av, y_av, kind=3, fill_value='extrapolate')
+
+        # длина кривой центров окружностей
+        l = integrate.quad(lambda x: sqrt(1 + derivative(f_av, x) ** 2),
+                           0 + self.relative_inlet_radius, 1 - self.relative_outlet_radius,
+                           epsrel=0.000_1)[0]
+
+        xc, dc = array(self.relative_circles).T
+        scale = l / (xc.max() - xc.min())  # масштаб
+        xc *= scale  # масштабирование х
+
+        f_d = interpolate.interp1d(xc, dc, kind=3, fill_value='extrapolate')
+
+        step = l / self.__discreteness  # шаг по кривой
+        x_circle, y_circle, d_circle = [0 + self.relative_inlet_radius], [f_av(0 + self.relative_inlet_radius)], [
+            f_d(0 + self.relative_inlet_radius)]
+        while True:
+            X = x_circle[-1] + step * tan2cos(derivative(f_av, x_circle[-1]))
+            if X > 1 - self.relative_outlet_radius: break
+            x_circle.append(X)
+            y_circle.append(f_av(X))
+            d_circle.append(f_d(X))
+        x_circle, y_circle, d_circle = array(x_circle), array(y_circle), array(d_circle)
+
+        an = linspace(0, 2 * pi, 360)
+        plt.figure()
+        plt.scatter(x_circle, y_circle)
+        for i in range(len(x_circle)):
+            plt.plot(x_circle[i] + cos(an) * d_circle[i] / 2, y_circle[i] + sin(an) * d_circle[i] / 2)
+        plt.grid(True)
+        plt.axis('equal')
+        plt.show()
+
+        return tuple()
 
     @timeit()
     def __calculate(self) -> tuple[tuple[float, float], ...]:
@@ -702,6 +768,10 @@ class Airfoil:
         elif self.method in Airfoil.__methods['MANUAL']['aliases']:
             self.__coordinates0 = self.__manual()
             self.__relative_inlet_radius, self.__relative_outlet_radius = 0, 0
+        elif self.method in Airfoil.__methods['CIRCLE']['aliases']:
+            self.__coordinates0 = self.__circle()
+            self.__relative_inlet_radius = self.relative_inlet_radius
+            self.__relative_outlet_radius = self.relative_outlet_radius
         else:
             print(Fore.RED + f'No such method {self.method}! Use Airfoil.help' + Fore.RESET)
 
@@ -805,7 +875,7 @@ class Airfoil:
         plt.plot([],
                  label=f'gamma = {self.__gamma:.{Airfoil.rnd}f} [rad] = {degrees(self.__gamma):.{Airfoil.rnd}f} [deg]')
         for key, value in self.__dict__.items():
-            if not key.startswith('_') and type(value) in (int, float, np.number):
+            if not key.startswith('_') and isinstance(value, (int, float, np.number)):
                 plt.plot([], label=f'{key} = {value:.{Airfoil.rnd}f}')
         plt.legend(loc='upper center')
 
@@ -994,10 +1064,70 @@ class Airfoil:
         return self.__channel
 
     # TODO
-    def cfd(self, vx, vy):
+    def cfd(self, vx, vy, padding=0.2, xlim=None, ylim=None):
         """Продувка"""
         assert isinstance(vx, (int, float, np.number))
         assert isinstance(vy, (int, float, np.number))
+        bounds = (20, 0)  # vx и vy потока
+        assert isinstance(padding, (float, int)) and 0 <= padding
+
+        def get_panel_centers(x, y):
+            """Определение серединных точек"""
+            xc = (x[1:] + x[:-1]) / 2
+            yc = (y[1:] + y[:-1]) / 2
+            return xc, yc
+
+        def get_panel_normals(x, y):
+            """Определение cos и sin наклона отрезков соединяющих соседние точки"""
+            # расстояния по соответствующим осям между соседними точками
+            dx, dy = x[1:] - x[:-1], y[1:] - y[:-1]
+            # длины соседних расстояний между точками
+            l = sqrt(dx ** 2 + dy ** 2)
+            # cos, sin
+            c, s = dx / l, dy / l
+            return s, -c
+
+        def u(xy: tuple, vortexs, bounds: tuple = (1, 1)):
+            X, Y = xy
+            ux = np.full_like(X, bounds[0], dtype=np.float64)
+            uy = np.full_like(Y, bounds[1], dtype=np.float64)
+
+            for i, j, k in vortexs:
+                R = ((X - i) ** 2 + (Y - j) ** 2)
+                ux += -k * (Y - j) / R
+                uy += k * (X - i) / R
+
+            return ux, uy
+
+        x, y = array(self.coordinates).T
+
+        vortexs = array((x, y,
+                         [-0.5] * (len(x) // 2) + [0.5] * (len(x) - len(x) // 2),  # np.random.randn(len(x))/3
+                         )).T
+
+        cx, cy = get_panel_centers(x, y)
+        nx, ny = get_panel_normals(x, y)
+
+        ux, uy = u((cx, cy), vortexs, bounds=bounds)
+        projection = nx * ux + ny * uy
+
+        if xlim is None:
+            width = x.max() - x.min()
+            xlim = (x.min() - padding * width, x.max() + padding * width)
+        if ylim is None:
+            height = y.max() - y.min()
+            ylim = (y.min() - padding * height, y.max() + padding * height)
+
+        X, Y = np.meshgrid(linspace(*xlim, self.__discreteness), linspace(*ylim, self.__discreteness))
+        ux, uy = u((X, Y), vortexs, bounds=bounds)
+
+        # plt.quiver(xc, yc, projection*xn, projection*yn, color='red')
+        plt.figure(dpi=150)
+        plt.streamplot(X, Y, ux, uy,
+                       color=(0, 0, 1, 0.5), density=1.5, minlength=0.1, linewidth=0.8, broken_streamlines=True)
+        plt.plot(x, y, color='black', linewidth=2)
+        plt.axis('equal')
+        plt.show()
 
     def to_dataframe(self, bears: str = 'pandas'):
         assert bears in ('pandas', 'polars')
@@ -1035,10 +1165,10 @@ def test() -> None:
 
     airfoils = list()
 
-    if 0:
+    if 1:
         airfoils.append(Airfoil('BMSTU', 30, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].rotation_angle = radians(110)
+        airfoils[-1].rotation_angle = radians(70)
         airfoils[-1].relative_inlet_radius, airfoils[-1].relative_outlet_radius = 0.06, 0.03
         airfoils[-1].inlet_angle, airfoils[-1].outlet_angle = radians(20), radians(10)
         airfoils[-1].x_ray_cross = 0.4
@@ -1071,7 +1201,7 @@ def test() -> None:
 
         airfoils[-1].points = ((1.0, 0.0), (0.35, 0.200), (0.05, 0.100),
                                (0.0, 0.0),
-                               (0.05, -0.10), (0.35, -0.05), (0.5, 0.0), (1.0, 0.0),)
+                               (0.05, -0.10), (0.35, -0.05), (0.5, 0.0), (1.0, 0.0))
 
     if 0:
         airfoils.append(Airfoil('MANUAL', 30, 1 / 1.698, radians(46.23)))
@@ -1081,10 +1211,12 @@ def test() -> None:
         airfoils[-1].deg = 3
 
     if 1:
-        airfoils.append(Airfoil('CHANNEL', 60, 1 / 1.698, radians(46.23)))
+        airfoils.append(Airfoil('CIRCLE', 60, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].relative_channel = (
-            (0.0, 0.0), (0.05, 0.08), (0.10, 0.110), (0.35, 0.150), (0.5, 0.15), (1.0, 0.0))
+        airfoils[-1].relative_circles = ((0.0, 0.5), (0.1, 0.4), (0.2, 0.35), (0.3, 0.3), (0.4, 0.28), (0.5, 0.25))
+        airfoils[-1].relative_inlet_radius, airfoils[-1].relative_outlet_radius = 0.06, 0.03
+        airfoils[-1].rotation_angle = radians(50)
+        airfoils[-1].x_ray_cross = 0.5
         airfoils[-1].is_airfoil = True
 
     for airfoil in airfoils:
@@ -1099,7 +1231,7 @@ def test() -> None:
         print(Fore.MAGENTA + 'airfoil channel:' + Fore.RESET)
         print(f'{airfoil.channel}')
 
-        airfoil.cfd(10, 15)
+        airfoil.cfd(10, 5)
 
         airfoil.export()
 
