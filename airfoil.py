@@ -615,10 +615,9 @@ class Airfoil:
         X = np.hstack(((x - yc * sin_tetta)[::-1], (x + yc * sin_tetta)[1::]))  # revers против часовой стрелки
         Y = np.hstack(((yf + yc * cos_tetta)[::-1], (yf - yc * cos_tetta)[1::]))  # удаление дубликатной входной точки
 
-        x_min, x_max = X.min(), X.max()
-        scale = abs(x_max - x_min)
+        scale = abs(X.max() - X.min())
 
-        return self.__transform(tuple(((x, y) for x, y in zip(X, Y))), x0=x_min, scale=(1 / scale))
+        return self.__transform(tuple(((x, y) for x, y in zip(X, Y))), x0=X.min(), scale=(1 / scale))
 
     def __mynk(self) -> tuple[tuple[float, float], ...]:
 
@@ -749,38 +748,58 @@ class Airfoil:
 
         xu, yu, xl, yl = list(), list(), list(), list()
         for i in range(len(d_circle)):
-            if dy_dx_[i] >= 0:  # TODO выход за границы 0, 1!
+            if dy_dx_[i] >= 0:
                 xu.append(x_circle[i] + d_circle[i] / 2 * tan2cos(dy_dx_[i]))
-                yu.append(y_circle[i] + d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+                if 0 + self.relative_inlet_radius <= xu[-1] <= 1 - self.relative_outlet_radius:
+                    yu.append(y_circle[i] + d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+                else:
+                    xu.pop()
                 xl.append(x_circle[i] - d_circle[i] / 2 * tan2cos(dy_dx_[i]))
-                yl.append(y_circle[i] - d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+                if 0 + self.relative_inlet_radius <= xl[-1] <= 1 - self.relative_outlet_radius:
+                    yl.append(y_circle[i] - d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+                else:
+                    xl.pop()
             else:
                 xu.append(x_circle[i] - d_circle[i] / 2 * tan2cos(dy_dx_[i]))
-                yu.append(y_circle[i] - d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+                if 0 + self.relative_inlet_radius <= xu[-1] <= 1 - self.relative_outlet_radius:
+                    yu.append(y_circle[i] - d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+                else:
+                    xu.pop()
                 xl.append(x_circle[i] + d_circle[i] / 2 * tan2cos(dy_dx_[i]))
-                yl.append(y_circle[i] + d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+                if 0 + self.relative_inlet_radius <= xl[-1] <= 1 - self.relative_outlet_radius:
+                    yl.append(y_circle[i] + d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+                else:
+                    xl.pop()
 
         if not self.is_airfoil:
             yu = [y - self.relative_step for y in yu]  # перенос спинки вниз
             yu, yl = yl, yu  # правильное обозначение
 
         X = [1] + xu[::-1] + [0] + xl + [1]
-        Y = [(yu[-1] + yl[-1]) / 2] + yu[::-1] + [0] + yl + [(yu[-1] + yl[-1]) / 2]
+        Y = [y_outlet] + yu[::-1] + [0] + yl + [y_outlet]
 
+        chord_A, _, _ = line_coefficients(p1=(0, 0), p2=(1, y_outlet))
+        coordinates = tuple((x, y) for x, y in zip(X, Y))
+        coordinates = self.__transform(coordinates, angle=atan(chord_A))  # поворот
+        x, _ = array(coordinates).T
+        coordinates = self.__transform(coordinates, x0=x.min(), scale=(1 / (x.max() - x.min())))  # нормализация
+
+        '''
         an = linspace(0, 2 * pi, 360)
         plt.figure()
-        plt.scatter(x_circle, y_circle)
-        for i in range(len(x_circle)):
-            plt.plot(x_circle[i] + cos(an) * d_circle[i] / 2, y_circle[i] + sin(an) * d_circle[i] / 2)
+        # plt.scatter(x_circle, y_circle)
+        # for i in range(len(x_circle)): plt.plot(x_circle[i] + cos(an) * d_circle[i] / 2, y_circle[i] + sin(an) * d_circle[i] / 2)
         plt.scatter(xu, yu, color='blue')
         plt.scatter(xl, yl, color='red')
-        plt.plot(X, Y, color='black')
+        # plt.plot(X, Y, color='black')
+        plt.plot(*(array(coordinates).T))
 
         plt.grid(True)
         plt.axis('equal')
         plt.show()
+        '''
 
-        return tuple((x, y) for x, y in zip(X, Y))
+        return coordinates
 
     @timeit()
     def __calculate(self) -> tuple[tuple[float, float], ...]:
@@ -1109,22 +1128,6 @@ class Airfoil:
         bounds = (20, 0)  # vx и vy потока
         assert isinstance(padding, (float, int)) and 0 <= padding
 
-        def get_panel_centers(x, y):
-            """Определение серединных точек"""
-            xc = (x[1:] + x[:-1]) / 2
-            yc = (y[1:] + y[:-1]) / 2
-            return xc, yc
-
-        def get_panel_normals(x, y):
-            """Определение cos и sin наклона отрезков соединяющих соседние точки"""
-            # расстояния по соответствующим осям между соседними точками
-            dx, dy = x[1:] - x[:-1], y[1:] - y[:-1]
-            # длины соседних расстояний между точками
-            l = sqrt(dx ** 2 + dy ** 2)
-            # cos, sin
-            c, s = dx / l, dy / l
-            return s, -c
-
         def u(xy: tuple, vortexs, bounds: tuple = (1, 1)):
             X, Y = xy
             ux = np.full_like(X, bounds[0], dtype=np.float64)
@@ -1143,12 +1146,6 @@ class Airfoil:
                          [-0.5] * (len(x) // 2) + [0.5] * (len(x) - len(x) // 2),  # np.random.randn(len(x))/3
                          )).T
 
-        cx, cy = get_panel_centers(x, y)
-        nx, ny = get_panel_normals(x, y)
-
-        ux, uy = u((cx, cy), vortexs, bounds=bounds)
-        projection = nx * ux + ny * uy
-
         if xlim is None:
             width = x.max() - x.min()
             xlim = (x.min() - padding * width, x.max() + padding * width)
@@ -1159,7 +1156,6 @@ class Airfoil:
         X, Y = np.meshgrid(linspace(*xlim, self.__discreteness), linspace(*ylim, self.__discreteness))
         ux, uy = u((X, Y), vortexs, bounds=bounds)
 
-        # plt.quiver(xc, yc, projection*xn, projection*yn, color='red')
         plt.figure(dpi=150)
         plt.streamplot(X, Y, ux, uy,
                        color=(0, 0, 1, 0.5), density=1.5, minlength=0.1, linewidth=0.8, broken_streamlines=True)
@@ -1251,8 +1247,13 @@ def test() -> None:
     if 1:
         airfoils.append(Airfoil('CIRCLE', 60, 1 / 1.698, radians(46.23)))
 
-        airfoils[-1].relative_circles = ((0.0, 0.5), (0.1, 0.4), (0.2, 0.35), (0.3, 0.3), (0.4, 0.28), (0.5, 0.25))
-        airfoils[-1].relative_inlet_radius, airfoils[-1].relative_outlet_radius = 0.06, 0.03
+        airfoils[-1].relative_circles = ((0.0, 0.05),
+                                         (0.1, 0.04),
+                                         (0.2, 0.035),
+                                         (0.3, 0.03),
+                                         (0.4, 0.028),
+                                         (0.5, 0.025))
+        airfoils[-1].relative_inlet_radius, airfoils[-1].relative_outlet_radius = 0.06, 0.02
         airfoils[-1].rotation_angle = radians(50)
         airfoils[-1].x_ray_cross = 0.5
         airfoils[-1].is_airfoil = True
