@@ -26,8 +26,10 @@ from curves import bernstein_curve
 
 sys.path.append('D:/Programming/Python/scripts')
 
-from tools import export2, isiter, derivative
-from tools import coordinate_intersection_lines, Axis, angle, distance, distance2line, line_coefficients, tan2cos
+from tools import export2, isiter
+from math_tools import derivative, coordinate_intersection_lines, Axis, angle, distance, distance2line, \
+    line_coefficients
+from math_tools import cot, tan2cos, cot2sin, tan2sin, cot2cos
 from decorators import timeit, warns
 
 # словарь терминов их описания, единицы измерения и граничные значения
@@ -163,7 +165,13 @@ vocabulary = {
         'description': 'степень интерполяции полинома',
         'unit': '[]',
         'bounds': f'[1, 3]',
-        'type': (int, np.int_), }
+        'type': (int, np.int_), },
+    'is_airfoil': {
+        'description': 'указатель на профиль',
+        'unit': '[]',
+        'bounds': '{False, True}',
+        'type': (bool,),
+        'assert': None, },
 }
 
 
@@ -225,8 +233,12 @@ class Airfoil:
                            'description': '',
                            'unit': '[]',
                            'bounds': '(_, _)',
-                           'type': (tuple, list, np.ndarray), }, }
-                   }}
+                           'type': (tuple, list, np.ndarray), },
+                       'relative_inlet_radius': vocabulary['relative_inlet_radius'],
+                       'relative_outlet_radius': vocabulary['relative_outlet_radius'],
+                       'rotation_angle': vocabulary['rotation_angle'],
+                       'x_ray_cross': vocabulary['x_ray_cross'],
+                       'is_airfoil': vocabulary['is_airfoil'], }}, }
     __relative_step = 1.0  # дефолтный относительный шаг []
     __gamma = 0.0  # дефолтный угол установки [рад]
 
@@ -725,24 +737,50 @@ class Airfoil:
         step = l / self.__discreteness  # шаг по кривой
         x_circle, y_circle, d_circle = [0 + self.relative_inlet_radius], [f_av(0 + self.relative_inlet_radius)], [
             f_d(0 + self.relative_inlet_radius)]
+        dy_dx = list()
         while True:
-            X = x_circle[-1] + step * tan2cos(derivative(f_av, x_circle[-1]))
+            dy_dx.append(derivative(f_av, x_circle[-1]))
+            X = x_circle[-1] + step * tan2cos(dy_dx[-1])
             if X > 1 - self.relative_outlet_radius: break
             x_circle.append(X)
             y_circle.append(f_av(X))
             d_circle.append(f_d(X))
-        x_circle, y_circle, d_circle = array(x_circle), array(y_circle), array(d_circle)
+        dy_dx_ = -1 / array(dy_dx)  # перпендикуляры
+
+        xu, yu, xl, yl = list(), list(), list(), list()
+        for i in range(len(d_circle)):
+            if dy_dx_[i] >= 0:  # TODO выход за границы 0, 1!
+                xu.append(x_circle[i] + d_circle[i] / 2 * tan2cos(dy_dx_[i]))
+                yu.append(y_circle[i] + d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+                xl.append(x_circle[i] - d_circle[i] / 2 * tan2cos(dy_dx_[i]))
+                yl.append(y_circle[i] - d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+            else:
+                xu.append(x_circle[i] - d_circle[i] / 2 * tan2cos(dy_dx_[i]))
+                yu.append(y_circle[i] - d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+                xl.append(x_circle[i] + d_circle[i] / 2 * tan2cos(dy_dx_[i]))
+                yl.append(y_circle[i] + d_circle[i] / 2 * tan2sin(dy_dx_[i]))
+
+        if not self.is_airfoil:
+            yu = [y - self.relative_step for y in yu]  # перенос спинки вниз
+            yu, yl = yl, yu  # правильное обозначение
+
+        X = [1] + xu[::-1] + [0] + xl + [1]
+        Y = [(yu[-1] + yl[-1]) / 2] + yu[::-1] + [0] + yl + [(yu[-1] + yl[-1]) / 2]
 
         an = linspace(0, 2 * pi, 360)
         plt.figure()
         plt.scatter(x_circle, y_circle)
         for i in range(len(x_circle)):
             plt.plot(x_circle[i] + cos(an) * d_circle[i] / 2, y_circle[i] + sin(an) * d_circle[i] / 2)
+        plt.scatter(xu, yu, color='blue')
+        plt.scatter(xl, yl, color='red')
+        plt.plot(X, Y, color='black')
+
         plt.grid(True)
         plt.axis('equal')
         plt.show()
 
-        return tuple()
+        return tuple((x, y) for x, y in zip(X, Y))
 
     @timeit()
     def __calculate(self) -> tuple[tuple[float, float], ...]:
@@ -1165,7 +1203,7 @@ def test() -> None:
 
     airfoils = list()
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('BMSTU', 30, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].rotation_angle = radians(70)
