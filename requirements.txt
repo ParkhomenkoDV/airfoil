@@ -1,0 +1,7 @@
+tqdm 
+colorama
+
+numpy
+scipy
+matplotlib
+pandas
