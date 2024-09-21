@@ -30,7 +30,7 @@ sys.path.append('D:/Programming/Python/scripts')
 from tools import export2, isiter
 from math_tools import derivative, coordinate_intersection_lines, Axis, angle, distance, distance2line, \
     coefficients_line
-from math_tools import cot, tan2cos, cot2sin, tan2sin, cot2cos
+from math_tools import cot, tan2cos, cot2sin, tan2sin, cot2cos, sum_atan
 from decorators import timeit, warns
 
 # словарь терминов их описания, единицы измерения и граничные значения
@@ -147,10 +147,16 @@ vocabulary = MappingProxyType({
         'description': 'координаты полюсов',
         'unit': '[]',
         'type': (tuple, list, np.ndarray),
-        'bounds': '[_, _]',
-        'assert': (lambda attribute: '' if 3 <= len(attribute) else '3 <= len(points)',
-                   lambda attribute: '' if all(isinstance(coord, (tuple, list, np.ndarray)) for coord in attribute)
-                   else 'all(isinstance(coord, (tuple, list, np.ndarray)) for coord in attribute)'), },
+        'assert': (lambda points: '' if 3 <= len(points) else '3 <= len(points)',
+                   lambda points: '' if all(isinstance(coord, (tuple, list, np.ndarray)) for coord in points)
+                   else 'all(isinstance(coord, (tuple, list, np.ndarray)) for coord in points)',
+                   lambda points: '' if all(len(coord) == 2 for coord in points)
+                   else 'all(len(coord) == 2 for coord in points)',
+                   lambda points:
+                   '' if all(isinstance(x, (int, float, np.number)) and isinstance(y, (int, float, np.number))
+                             for x, y in points)
+                   else 'all(isinstance(x, (int, float, np.number)) and isinstance(y, (int, float, np.number)) '
+                        'for x, y in points)'), },
     'upper': {
         'description': 'координаты спинки',
         'unit': '[]',
@@ -166,22 +172,30 @@ vocabulary = MappingProxyType({
     'deg': {
         'description': 'степень интерполяции полинома',
         'unit': '[]',
-        'bounds': f'[1, 3]',
         'type': (int, np.integer),
-        'assert': None, },
+        'assert': (lambda deg: '' if 1 <= deg <= 3 else '1 <= deg <= 3',), },
     'relative_circles': {
         'description': 'относительные окружности профиля или канала',
         'unit': '[]',
-        'bounds': '(_, _)',
         'type': (tuple, list, np.ndarray),
-        'assert': tuple(),
-    },
+        'assert': (lambda relative_circles: '' if 3 <= len(relative_circles) else '3 <= len(relative_circles)',
+                   lambda relative_circles:
+                   '' if all(isinstance(coord, (tuple, list, np.ndarray)) for coord in relative_circles)
+                   else 'all(isinstance(coord, (tuple, list, np.ndarray)) for coord in relative_circles)',
+                   lambda relative_circles: '' if all(len(coord) == 2 for coord in relative_circles)
+                   else 'all(len(coord) == 2 for coord in relative_circles)',
+                   lambda relative_circles:
+                   '' if all(isinstance(x, (int, float, np.number)) and isinstance(y, (int, float, np.number))
+                             for x, y in relative_circles)
+                   else 'all(isinstance(x, (int, float, np.number)) and isinstance(y, (int, float, np.number)) '
+                        'for x, y in relative_circles)',
+                   lambda relative_circles: '' if all(0 < x < 1 and 0 < y for x, y in relative_circles)
+                   else 'all(0 < x < 1 and 0 < y for x, y in relative_circles)',), },
     'is_airfoil': {
         'description': 'указатель на профиль',
         'unit': '[]',
-        'bounds': '{False, True}',
         'type': (bool,),
-        'assert': None, },
+        'assert': tuple(), },
 })
 
 
@@ -239,11 +253,7 @@ class Airfoil:
         'CIRCLE': {'description': '',
                    'aliases': ('CIRCLE', 'ОКРУЖНОСТЬ',),
                    'attributes': {
-                       'relative_circles': {
-                           'description': '',
-                           'unit': '[]',
-                           'bounds': '(_, _)',
-                           'type': (tuple, list, np.ndarray), },
+                       'relative_circles': vocabulary['relative_circles'],
                        'rotation_angle': vocabulary['rotation_angle'],
                        'x_ray_cross': vocabulary['x_ray_cross'],
                        'is_airfoil': vocabulary['is_airfoil'], }}, }
@@ -262,12 +272,16 @@ class Airfoil:
     @classmethod
     def help(cls):
         """Помощь при работе с классом Airfoil и его объектами"""
+        print(Fore.MAGENTA + 'Airfoil tutorial' + Fore.RESET)
         print('Airfoil.rnd = 4  # количество значащих цифр')
-        print('airfoil = Airfoil(method, discreteness, relative_step, gamma)  # создание объекта')
+        print('Airfoil.vocabulary  # словарь терминов и атрибутов')
+        print()
+        print('airfoil = Airfoil(method, discreteness, relative_step, gamma, **attributes)  # создание объекта')
         print('где:')
         print('discreteness:  int >= 3      # количество дискретных точек')
         print('relative_step: int > 0       # относительный шаг')
         print('gamma:         float < pi/2  # угол установки профиля')
+        print()
         print('methods:  # методы построения аэродинамического профиля')
         for method in Airfoil.__methods:
             print(method)
@@ -275,9 +289,10 @@ class Airfoil:
             print('\t' + f'aliases: {Airfoil.__methods[method]["aliases"]}')
             print('\t' + f'attributes:')
             for attribute in Airfoil.__methods[method]["attributes"]:
-                print('\t\t' + f'{attribute}')
+                print('\t\t' + Fore.CYAN + f'{attribute}' + Fore.RESET)
                 for key, value in Airfoil.__methods[method]["attributes"][attribute].items():
                     print('\t\t\t' + f'{key}: {value}')
+        print()
         print('airfoil.show()')
         print('airfoil.properties')
         print('airfoil.channel')
@@ -319,7 +334,7 @@ class Airfoil:
         def validate_points(points: tuple | list | np.ndarray) -> None:
             """Проверка двумерного массива точек"""
             assert isinstance(points, (tuple, list, np.ndarray))  # тип массива координат
-            assert len(points) >= 2  # количество координат
+            assert len(points) >= 3  # количество координат
             assert all(isinstance(coord, (tuple, list, np.ndarray)) for coord in points)  # тип координаты
             assert all(len(coord) == 2 for coord in points)  # проверка длин элементов итератора
             assert all(isinstance(x, (int, float, np.number)) and isinstance(y, (int, float, np.number))
@@ -333,10 +348,7 @@ class Airfoil:
                 for ass in Airfoil.__methods[self.__method]['attributes'][attr]["assert"]:
                     assert not ass(getattr(self, attr)), ass(getattr(self, attr))
 
-            if self.__method in Airfoil.__methods['BEZIER']['aliases']:
-                validate_points(self.points)
-
-            elif self.__method in Airfoil.__methods['MANUAL']['aliases']:
+            if self.__method in Airfoil.__methods['MANUAL']['aliases']:
                 validate_points(self.upper)
                 validate_points(self.lower)
                 assert all(0 <= x <= 1 for x, _ in self.upper)
@@ -691,7 +703,14 @@ class Airfoil:
 
     def __circle(self) -> tuple[tuple[float, float], ...]:
 
-        A_outlet, C_outlet = tan(-self.rotation_angle), -tan(-self.rotation_angle) * self.x_ray_cross
+        rotation_angle = self.rotation_angle if self.is_airfoil else self.gamma  # угол поворота профиля/канала
+
+        # D = (1 - 2 * self.x_ray_cross) ** 2 - 4 * (tan(rotation_angle - pi) ** 2) * self.x_ray_cross * (1 - self.x_ray_cross)
+        # y_ray_cross = (-(1 - 2 * self.x_ray_cross) + sqrt(D)) / (2 * tan(rotation_angle - pi))
+
+        # A_inlet, B_inlet, C_inlet = coefficients_line(p1=(0, 0), p2=(self.x_ray_cross, y_ray_cross))
+
+        A_outlet, C_outlet = tan(-rotation_angle), -tan(-rotation_angle) * self.x_ray_cross
 
         y_outlet = A_outlet * 1 + C_outlet  # y выхода
 
@@ -703,8 +722,12 @@ class Airfoil:
         l = integrate.quad(lambda x: sqrt(1 + derivative(f_av, x) ** 2), 0, 1, epsrel=0.000_1)[0]
 
         xc, dc = array(self.relative_circles).T
-        scale = l / (xc.max() - xc.min())  # масштаб
-        xc *= scale  # масштабирование х
+        xc = np.insert(xc, 0, 0)
+        dc = np.insert(dc, 0, 0 if self.is_airfoil else self.relative_step)
+        xc = np.append(xc, 1)
+        dc = np.append(dc, 0 if self.is_airfoil else self.relative_step)
+
+        xc *= l  # масштабирование хc по длине l
 
         f_d = interpolate.interp1d(xc, dc, kind=3, fill_value='extrapolate')
 
@@ -716,7 +739,7 @@ class Airfoil:
             if X > 1: break
             x_circle.append(X)
             y_circle.append(f_av(X))
-            d_circle.append(f_d(X))
+            d_circle.append(f_d(X) if f_d(X) >= 0 else 0)  # интерполяция ушла в минус
         dy_dx_ = -1 / array(dy_dx)  # перпендикуляры
 
         xu, yu, xl, yl = list(), list(), list(), list()
@@ -747,9 +770,11 @@ class Airfoil:
         if not self.is_airfoil:
             yu = [y - self.relative_step for y in yu]  # перенос спинки вниз
             yu, yl = yl, yu  # правильное обозначение
+            xu, xl = xl, xu
 
-        X = [1] + xu[::-1] + [0] + xl + [1]
-        Y = [y_outlet] + yu[::-1] + [0] + yl + [y_outlet]
+        X = [1] + xu[::-1] + xl[1::] + [1]
+        Y = [y_outlet] + yu[::-1] + yl[1::] + [y_outlet] if self.is_airfoil \
+            else [y_outlet - self.relative_step / 2] + yu[::-1] + yl[1::] + [y_outlet - self.relative_step / 2]
 
         chord_A, _, _ = coefficients_line(p1=(0, 0), p2=(1, y_outlet))
         coordinates = tuple((x, y) for x, y in zip(X, Y))
@@ -757,20 +782,18 @@ class Airfoil:
         x, _ = array(coordinates).T
         coordinates = self.__transform(coordinates, x0=x.min(), scale=(1 / (x.max() - x.min())))  # нормализация
 
-        '''
-        an = linspace(0, 2 * pi, 360)
+        '''an = linspace(0, 2 * pi, 360)
         plt.figure()
-        # plt.scatter(x_circle, y_circle)
-        # for i in range(len(x_circle)): plt.plot(x_circle[i] + cos(an) * d_circle[i] / 2, y_circle[i] + sin(an) * d_circle[i] / 2)
+        plt.scatter(x_circle, y_circle)
+        for i in range(len(x_circle)): plt.plot(x_circle[i] + cos(an) * d_circle[i] / 2,
+                                                y_circle[i] + sin(an) * d_circle[i] / 2)
         plt.scatter(xu, yu, color='blue')
         plt.scatter(xl, yl, color='red')
-        # plt.plot(X, Y, color='black')
-        plt.plot(*(array(coordinates).T))
-
+        plt.plot(X, Y, color='black')
+        plt.plot(*array(coordinates).T)
         plt.grid(True)
         plt.axis('equal')
-        plt.show()
-        '''
+        plt.show()'''
 
         return coordinates
 
@@ -849,8 +872,8 @@ class Airfoil:
 
         coordinates = self.upper_lower(coordinates)
 
-        Fu = interpolate.interp1d(*(array(coordinates['upper']).T), kind=3, fill_value='extrapolate')
-        Fl = interpolate.interp1d(*(array(coordinates['lower']).T), kind=3, fill_value='extrapolate')
+        Fu = interpolate.interp1d(*array(coordinates['upper']).T, kind=3, fill_value='extrapolate')
+        Fl = interpolate.interp1d(*array(coordinates['lower']).T, kind=3, fill_value='extrapolate')
 
         x0, x1 = 0, 1  # координаты x входной и выходной окружности
         y0, y1 = Fu(x0), Fu(x1)  # координаты y входной и выходной окружности
@@ -892,6 +915,10 @@ class Airfoil:
         """Построение профиля"""
         assert isinstance(amount, int) and 1 <= amount  # количество профилей
 
+        X, Y = array(self.coordinates).T  # запуск расчета
+        coordinates0 = self.upper_lower(self.__coordinates0)
+        x, y, d, r = self.channel.T
+
         fg = plt.figure(figsize=figsize)
         gs = fg.add_gridspec(nrows=2, ncols=3)
 
@@ -914,15 +941,13 @@ class Airfoil:
         for key, value in self.properties.items(): plt.plot([], label=f'{key} = {value:.{Airfoil.rnd}f}')
         plt.legend(loc='upper center')
 
-        coordinates = self.upper_lower(self.__coordinates0)
-
         fg.add_subplot(gs[0, 1])
         plt.title('Airfoil structure')
         plt.grid(True)  # сетка
         plt.axis('equal')
         plt.xlim([0, 1])
-        plt.plot(*array(coordinates['upper']).T, ls='solid', color='blue', linewidth=2)
-        plt.plot(*array(coordinates['lower']).T, ls='solid', color='red', linewidth=2)
+        plt.plot(*array(coordinates0['upper']).T, ls='solid', color='blue', linewidth=2)
+        plt.plot(*array(coordinates0['lower']).T, ls='solid', color='red', linewidth=2)
         alpha = linspace(0, 2 * pi, 360, endpoint=True)
         circles = self.__find_circles(self.__coordinates0)
         x_inlet = self.__relative_inlet_radius * cos(alpha) + circles['inlet']['point'][0]
@@ -931,9 +956,6 @@ class Airfoil:
         y_outlet = self.__relative_outlet_radius * sin(alpha) + circles['outlet']['point'][1]
         plt.plot(x_inlet, y_inlet, ls='solid', color='black', linewidth=1)
         plt.plot(x_outlet, y_outlet, ls='solid', color='black', linewidth=1)
-
-        x, y, d, r = self.channel.T
-        X, Y = array(self.__coordinates).T
 
         fg.add_subplot(gs[1, 1])
         plt.title('Channel')
@@ -979,8 +1001,8 @@ class Airfoil:
         self.__properties['radius_outlet'] = self.__relative_outlet_radius
 
         dct = self.upper_lower(self.__coordinates)
-        self.__Fu = interpolate.interp1d(*(array(dct['upper']).T), kind=3, fill_value='extrapolate')
-        self.__Fl = interpolate.interp1d(*(array(dct['lower']).T), kind=3, fill_value='extrapolate')
+        self.__Fu = interpolate.interp1d(*array(dct['upper']).T, kind=3, fill_value='extrapolate')
+        self.__Fl = interpolate.interp1d(*array(dct['lower']).T, kind=3, fill_value='extrapolate')
 
         self.__properties['area'] = integrate.dblquad(lambda _, __: 1,
                                                       0, 1, lambda xu: self.__Fl(xu), lambda xl: self.__Fu(xl),
@@ -1042,7 +1064,7 @@ class Airfoil:
         if isnan(xgmin): xgmin = 0
         if isnan(xgmax): xgmin = 1
 
-        step = self.__properties['len_l'] / self.__discreteness  # шаг вдоль кривой
+        step = self.properties['len_l'] / self.__discreteness  # шаг вдоль кривой
 
         x = [xgmin]
         while True:
@@ -1139,7 +1161,7 @@ class Airfoil:
 
     def export(self, file_path='exports/airfoil', file_name='airfoil', file_extension='xlsx',
                show_time=True, header=True):
-        export2(self.to_dataframe(bears='pandas'),
+        export2(self.to_dataframe(),
                 file_path=file_path,
                 file_name=file_name,
                 file_extension=file_extension,
@@ -1166,7 +1188,7 @@ def test() -> None:
 
     airfoils = list()
 
-    if 1:
+    if 0:
         airfoils.append(Airfoil('BMSTU', 30, 1 / 1.698, radians(46.23)))
 
         airfoils[-1].rotation_angle = radians(70)
@@ -1211,16 +1233,30 @@ def test() -> None:
         airfoils[-1].lower = ((0.0, 0.0), (0.05, -0.025), (0.35, -0.025), (0.5, 0.0), (0.8, 0.025), (1.0, 0.0))
         airfoils[-1].deg = 3
 
-    if 0:
-        airfoils.append(Airfoil('CIRCLE', 60, 1 / 1.698, radians(46.23)))
+    if 1:
+        airfoils.append(Airfoil('CIRCLE', 60, 0.7, radians(30.23)))
 
-        airfoils[-1].relative_circles = (  # (0.005, 0.05),
-            (0.1, 0.04),
-            (0.2, 0.035),
-            (0.3, 0.03),
-            (0.4, 0.028),
-            (0.5, 0.025),
-            (0.6, 0.1))
+        airfoils[-1].relative_circles = ((0.1, 0.04),
+                                         (0.2, 0.035),
+                                         (0.3, 0.03),
+                                         (0.4, 0.028),
+                                         (0.5, 0.025),
+                                         (0.6, 0.02),)
+        airfoils[-1].rotation_angle = radians(50)
+        airfoils[-1].x_ray_cross = 0.5
+        airfoils[-1].is_airfoil = True
+
+    if 1:
+        airfoils.append(Airfoil('CIRCLE', 60, 0.7, radians(30.23)))
+
+        airfoils[-1].relative_circles = ((0.1, 0.4),
+                                         (0.2, 0.4),
+                                         (0.3, 0.4),
+                                         (0.4, 0.4),
+                                         (0.5, 0.4),
+                                         (0.6, 0.4),
+                                         (0.8, 0.4),
+                                         (0.9, 0.4))
         airfoils[-1].rotation_angle = radians(50)
         airfoils[-1].x_ray_cross = 0.5
         airfoils[-1].is_airfoil = False
@@ -1228,8 +1264,7 @@ def test() -> None:
     for airfoil in airfoils:
         airfoil.show()
 
-        print(airfoil.to_dataframe(bears='pandas'))
-        print(airfoil.to_dataframe(bears='polars'))
+        print(airfoil.to_dataframe())
 
         print(Fore.MAGENTA + 'airfoil properties:' + Fore.RESET)
         for k, v in airfoil.properties.items(): print(f'{k}: {v}')
