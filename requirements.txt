@@ -6,4 +6,4 @@ scipy
 matplotlib
 pandas
 
-https://github.com/ParkhomenkoDV/python_scripts
+git+https://github.com/ParkhomenkoDV/python_scripts.git@master
