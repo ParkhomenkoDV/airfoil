@@ -6,4 +6,4 @@ scipy
 matplotlib
 pandas
 
-git+https://github.com/ParkhomenkoDV/python_scripts.git@master
+git+https://github.com/ParkhomenkoDV/python_scripts.git@master#egg=tools
