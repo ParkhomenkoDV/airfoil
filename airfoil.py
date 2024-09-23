@@ -24,7 +24,7 @@ import pandas as pd
 
 from curves import bernstein_curve
 
-sys.path.append('D:/Programming/Python/scripts')
+# sys.path.append('D:/Programming/Python/scripts')
 
 from tools import export2, isiter
 from math_tools import derivative, coordinate_intersection_lines, Axis, angle, distance, distance2line, \
@@ -317,8 +317,6 @@ class Airfoil:
         print('airfoil.channel')
         print('airfoil.to_dataframe()')
         print('airfoil.export()')
-
-
 
     def validate(self, **kwargs) -> None:
         """Проверка верности ввода атрибутов профиля"""
