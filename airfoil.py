@@ -1,18 +1,9 @@
-"""
-Список литературы:
+from types import MappingProxyType  # неизменяемый словарь
 
-[1] = Теория и проектирование газовой турбины: учебное пособие /
-В.Е. Михальцев, В.Д. Моляков; под ред. А.Ю. Вараксина. -
-Москва: Издательство МГТУ им. Н.Э. Баумана, 2020. - 230, [2] с.: ил.
-"""
-
-import sys
 import warnings
 
 from tqdm import tqdm
 from colorama import Fore
-from types import MappingProxyType  # неизменяемый словарь
-
 import numpy as np
 from numpy import array, arange, linspace, zeros, full, zeros_like, full_like
 from numpy import nan, isnan, inf, isinf, pi
@@ -22,18 +13,22 @@ from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from curves import bernstein_curve
-
-# sys.path.append('D:/Programming/Python/scripts')
-
 from tools import export2, isiter
+from decorators import timeit, warns
 from math_tools import derivative, coordinate_intersection_lines, Axis, angle, distance, distance2line, \
     coefficients_line
-from math_tools import cot, tan2cos, cot2sin, tan2sin, cot2cos, sum_atan
-from decorators import timeit, warns
+from math_tools import cot, tan2cos, tan2sin
+from curves import bernstein_curve
+
+# Список использованной литературы
+REFERENCES = MappingProxyType({
+    1: '''Теория и проектирование газовой турбины: учебное пособие /
+В.Е. Михальцев, В.Д. Моляков; под ред. А.Ю. Вараксина. -
+Москва: Издательство МГТУ им. Н.Э. Баумана, 2020. - 230, [2] с.: ил.''',
+})
 
 # словарь терминов их описания, единицы измерения и граничные значения
-vocabulary = MappingProxyType({
+VOCABULARY = MappingProxyType({
     'rotation_angle': {
         'description': 'угол поворота потока',
         'unit': '[рад]',
@@ -229,53 +224,53 @@ class Airfoil:
             'description': '',
             'aliases': ('BMSTU', 'МГТУ', 'МВТУ', 'МИХАЛЬЦЕВ'),
             'attributes': {
-                'rotation_angle': vocabulary['rotation_angle'],
-                'relative_inlet_radius': vocabulary['relative_inlet_radius'],
-                'relative_outlet_radius': vocabulary['relative_outlet_radius'],
-                'inlet_angle': vocabulary['inlet_angle'],
-                'outlet_angle': vocabulary['outlet_angle'],
-                'x_ray_cross': vocabulary['x_ray_cross'],
-                'upper_proximity': vocabulary['upper_proximity']}},
+                'rotation_angle': VOCABULARY['rotation_angle'],
+                'relative_inlet_radius': VOCABULARY['relative_inlet_radius'],
+                'relative_outlet_radius': VOCABULARY['relative_outlet_radius'],
+                'inlet_angle': VOCABULARY['inlet_angle'],
+                'outlet_angle': VOCABULARY['outlet_angle'],
+                'x_ray_cross': VOCABULARY['x_ray_cross'],
+                'upper_proximity': VOCABULARY['upper_proximity']}},
         'NACA': {'description': '',
                  'aliases': ('NACA', 'N.A.C.A.'),
                  'attributes': {
-                     'relative_thickness': vocabulary['relative_thickness'],
-                     'x_relative_camber': vocabulary['x_relative_camber'],
-                     'relative_camber': vocabulary['relative_camber'],
-                     'closed': vocabulary['closed'], }},
+                     'relative_thickness': VOCABULARY['relative_thickness'],
+                     'x_relative_camber': VOCABULARY['x_relative_camber'],
+                     'relative_camber': VOCABULARY['relative_camber'],
+                     'closed': VOCABULARY['closed'], }},
         'MYNK': {'description': '',
                  'aliases': ('MYNK', 'МУНК'),
                  'attributes': {
-                     'mynk_coefficient': vocabulary['mynk_coefficient'], }},
+                     'mynk_coefficient': VOCABULARY['mynk_coefficient'], }},
         'PARSEC': {'description': '',
                    'aliases': ('PARSEC',),
                    'attributes': {
-                       'relative_inlet_radius': vocabulary['relative_inlet_radius'],
-                       'x_relative_camber_upper': vocabulary['x_relative_camber_upper'],
-                       'x_relative_camber_lower': vocabulary['x_relative_camber_lower'],
-                       'relative_camber_upper': vocabulary['relative_camber_upper'],
-                       'relative_camber_lower': vocabulary['relative_camber_lower'],
-                       'd2y_dx2_upper': vocabulary['d2y_dx2_upper'],
-                       'd2y_dx2_lower': vocabulary['d2y_dx2_lower'],
-                       'theta_outlet_upper': vocabulary['theta_outlet_upper'],
-                       'theta_outlet_lower': vocabulary['theta_outlet_lower'], }},
+                       'relative_inlet_radius': VOCABULARY['relative_inlet_radius'],
+                       'x_relative_camber_upper': VOCABULARY['x_relative_camber_upper'],
+                       'x_relative_camber_lower': VOCABULARY['x_relative_camber_lower'],
+                       'relative_camber_upper': VOCABULARY['relative_camber_upper'],
+                       'relative_camber_lower': VOCABULARY['relative_camber_lower'],
+                       'd2y_dx2_upper': VOCABULARY['d2y_dx2_upper'],
+                       'd2y_dx2_lower': VOCABULARY['d2y_dx2_lower'],
+                       'theta_outlet_upper': VOCABULARY['theta_outlet_upper'],
+                       'theta_outlet_lower': VOCABULARY['theta_outlet_lower'], }},
         'BEZIER': {'description': '',
                    'aliases': ('BEZIER', 'БЕЗЬЕ'),
                    'attributes': {
-                       'points': vocabulary['points'], }},
+                       'points': VOCABULARY['points'], }},
         'MANUAL': {'description': '',
                    'aliases': ('MANUAL', 'SPLINE', 'ВРУЧНУЮ'),
                    'attributes': {
-                       'upper': vocabulary['upper'],
-                       'lower': vocabulary['lower'],
-                       'deg': vocabulary['deg'], }},
+                       'upper': VOCABULARY['upper'],
+                       'lower': VOCABULARY['lower'],
+                       'deg': VOCABULARY['deg'], }},
         'CIRCLE': {'description': '',
                    'aliases': ('CIRCLE', 'ОКРУЖНОСТЬ',),
                    'attributes': {
-                       'relative_circles': vocabulary['relative_circles'],
-                       'rotation_angle': vocabulary['rotation_angle'],
-                       'x_ray_cross': vocabulary['x_ray_cross'],
-                       'is_airfoil': vocabulary['is_airfoil'], }}, }
+                       'relative_circles': VOCABULARY['relative_circles'],
+                       'rotation_angle': VOCABULARY['rotation_angle'],
+                       'x_ray_cross': VOCABULARY['x_ray_cross'],
+                       'is_airfoil': VOCABULARY['is_airfoil'], }}, }
     __relative_step = 1.0  # дефолтный относительный шаг []
     __gamma = 0.0  # дефолтный угол установки [рад]
 
