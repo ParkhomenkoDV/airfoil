@@ -4,6 +4,7 @@ import warnings
 
 from tqdm import tqdm
 from colorama import Fore
+import pandas as pd
 import numpy as np
 from numpy import array, arange, linspace, zeros, full, zeros_like, full_like
 from numpy import nan, isnan, inf, isinf, pi
@@ -11,13 +12,12 @@ from numpy import cos, sin, tan, arctan as atan, sqrt, floor, ceil, radians, deg
 from scipy import interpolate, integrate
 from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
-import pandas as pd
 
 from tools import export2, isiter
 from decorators import timeit, warns
-from math_tools import derivative, coordinate_intersection_lines, Axis, angle, distance, distance2line, \
-    coefficients_line
-from math_tools import cot, tan2cos, tan2sin
+from mathematics import derivative, Axis
+from mathematics import coordinate_intersection_lines, coefficients_line, angle_between, distance, distance2line
+from mathematics import cot, tan2cos, tan2sin
 from curves import bernstein_curve
 
 # Список использованной литературы
@@ -216,7 +216,7 @@ VOCABULARY = MappingProxyType({
 class Airfoil:
     """Относительный аэродинамический профиль"""
 
-    rnd = 4  # количество значащих цифр
+    __rnd = 4  # количество значащих цифр
     __discreteness = 30  # рекомендуемое количество дискретных точек
     # TODO
     __methods = {
@@ -281,6 +281,19 @@ class Airfoil:
         todo = ('Дописать help', 'Сделать продувку')
         for i, td in enumerate(todo): print(float(version) + (i + 1), td)
         return version
+
+    @property
+    def rnd(self) -> int:
+        return Airfoil.__rnd
+
+    @rnd.setter
+    def rnd(self, value) -> None:
+        assert isinstance(value, int) and 0 <= value
+        Airfoil.__rnd = value
+
+    @rnd.deleter
+    def rnd(self):
+        raise
 
     # TODO
     @classmethod
@@ -525,7 +538,7 @@ class Airfoil:
         x, y = list(), list()
 
         # окружность выходной кромки спинки
-        an = angle(points=((1, O_outlet[1]), O_outlet, (xclc_e_u, yclc_e_u)))
+        an = angle_between(points=((1, O_outlet[1]), O_outlet, (xclc_e_u, yclc_e_u)))
         if not isnan(an):  # при не нулевом радиусе окружности
             if O_outlet[0] > xclc_e_u: an = pi - an
             # уменьшение угла для предотвращения дублирования координат
@@ -540,7 +553,7 @@ class Airfoil:
         y += yu
 
         # точки входной окружности кромки по спинке
-        an = angle(points=((0, O_inlet[1]), O_inlet, (xclc_i_u, yclc_i_u)))
+        an = angle_between(points=((0, O_inlet[1]), O_inlet, (xclc_i_u, yclc_i_u)))
         if not isnan(an):  # при не нулевом радиусе окружности
             if xclc_i_u > O_inlet[0]: an = pi - an
             # уменьшение угла для предотвращения дублирования координат
@@ -551,7 +564,7 @@ class Airfoil:
         x.pop(), y.pop()  # удаление дубликата входной точки
 
         # окружность входной кромки корыта
-        an = angle(points=((0, O_inlet[1]), O_inlet, (xclc_i_d, yclc_i_d)))
+        an = angle_between(points=((0, O_inlet[1]), O_inlet, (xclc_i_d, yclc_i_d)))
         if not isnan(an):  # при не нулевом радиусе окружности
             if xclc_i_d > O_inlet[0]: an = pi - an
             # уменьшение угла для предотвращения дублирования координат
@@ -566,7 +579,7 @@ class Airfoil:
         y += yd
 
         # точки выходной окружности кромки по корыту
-        an = angle(points=((1, O_outlet[1]), O_outlet, (xclc_e_d, yclc_e_d)))
+        an = angle_between(points=((1, O_outlet[1]), O_outlet, (xclc_e_d, yclc_e_d)))
         if not isnan(an):  # при не нулевом радиусе окружности
             if O_outlet[0] > xclc_e_d: an = pi - an
             # уменьшение угла для предотвращения дублирования координат
