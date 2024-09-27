@@ -1,5 +1,4 @@
 from types import MappingProxyType  # неизменяемый словарь
-
 import warnings
 
 from tqdm import tqdm
