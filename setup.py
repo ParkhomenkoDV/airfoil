@@ -8,6 +8,7 @@ with open('README.md', 'rt', encoding='utf-8') as file:
 
 with open('requirements.txt', 'rt') as file:
     install_requires = file.readlines()
+    print(install_requires)
 
 setup(
     name=name,
