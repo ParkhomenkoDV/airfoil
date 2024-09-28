@@ -21,5 +21,8 @@ setup(
     url='https://github.com/ParkhomenkoDV/airfoil.git',
     packages=[name],
     python_requires='>=3.8',
-    install_requires=install_requires,
+    install_requires=['tqdm', 'colorama', 'numpy', 'scipy', 'matplotlib', 'pandas',
+                      'git+https://github.com/ParkhomenkoDV/decorators.git@master',
+                      'git+https://github.com/ParkhomenkoDV/tools.git@master',
+                      'git+https://github.com/ParkhomenkoDV/mathematics.git@master', ],
 )
