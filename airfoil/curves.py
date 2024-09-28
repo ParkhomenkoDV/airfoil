@@ -47,8 +47,7 @@ def bernstein_curve(points, N: int = 10):
     points = array(points)[:, None, :]  # добавление новой оси в массиве
     curve = BPoly(points, [0, 1])
     t = linspace(0, 1, N)
-    p = curve(t)
-    return p
+    return curve(t)
 
 
 def show(*args, title='curve'):

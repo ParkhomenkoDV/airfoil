@@ -17,7 +17,8 @@ from decorators import timeit, warns
 from mathematics import derivative, Axis
 from mathematics import coordinate_intersection_lines, coefficients_line, angle_between, distance, distance2line
 from mathematics import cot, tan2cos, tan2sin
-from curves import bernstein_curve
+
+from .curves import bernstein_curve
 
 # Список использованной литературы
 REFERENCES = MappingProxyType({
