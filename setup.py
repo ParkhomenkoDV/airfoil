@@ -19,7 +19,7 @@ setup(
     author='Daniil Andryushin',
     author_email='',
     url='https://github.com/ParkhomenkoDV/airfoil.git',
-    packages=[name],
+    packages=find_packages(),
     python_requires='>=3.8',
     install_requires=install_requires,
 )
