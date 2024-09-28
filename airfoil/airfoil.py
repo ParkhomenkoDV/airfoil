@@ -1,3 +1,5 @@
+import os
+import sys
 from types import MappingProxyType  # неизменяемый словарь
 import warnings
 
@@ -18,7 +20,10 @@ from mathematics import derivative, Axis
 from mathematics import coordinate_intersection_lines, coefficients_line, angle_between, distance, distance2line
 from mathematics import cot, tan2cos, tan2sin
 
-from .curves import bernstein_curve
+HERE = os.path.dirname(__file__)
+sys.path.append(HERE)
+
+from curves import bernstein_curve
 
 # Список использованной литературы
 REFERENCES = MappingProxyType({
