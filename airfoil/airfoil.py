@@ -277,7 +277,7 @@ class Airfoil:
                        'x_ray_cross': VOCABULARY['x_ray_cross'],
                        'is_airfoil': VOCABULARY['is_airfoil'], }}, }
     __relative_step = 1.0  # дефолтный относительный шаг []
-    __gamma = 0.0  # дефолтный угол установки [рад]
+    __installation_angle = 0.0  # дефолтный угол установки [рад]
 
     @classmethod
     @property
@@ -370,14 +370,16 @@ class Airfoil:
                     assert not ass(getattr(self, attr)), ass(getattr(self, attr))
 
     def __init__(self, method: str, discreteness: int = __discreteness,
-                 relative_step: float | int = __relative_step, gamma: float | int = __gamma, **attributes):
-        self.validate(method=method, discreteness=discreteness, relative_step=relative_step, gamma=gamma)
+                 relative_step: float | int = __relative_step, installation_angle: float | int = __installation_angle,
+                 **attributes):
+        self.validate(method=method, discreteness=discreteness,
+                      relative_step=relative_step, installation_angle=installation_angle)
 
         self.__method = method.strip().upper()  # метод построения аэродинамического профиля
         self.__discreteness = discreteness  # количество точек дискретизации
 
         self.__relative_step = relative_step  # относительный шаг []
-        self.__gamma = gamma  # угол установки [рад]
+        self.__installation_angle = installation_angle  # угол установки [рад]
 
         self.__coordinates = tuple()  # относительные координаты профиля считая против часовой стрелки с выходной кромки
         self.__properties = dict()  # относительные характеристики профиля
@@ -434,17 +436,17 @@ class Airfoil:
         self.__relative_step = Airfoil.__relative_step
 
     @property
-    def gamma(self) -> float | int | np.number:
-        return self.__gamma
+    def installation_angle(self) -> float | int | np.number:
+        return self.__installation_angle
 
-    @gamma.setter
-    def gamma(self, gamma):
-        self.validate(gamma=gamma)
-        self.__init__(method=self.method, gamma=gamma)
+    @installation_angle.setter
+    def installation_angle(self, installation_angle):
+        self.validate(installation_angle=installation_angle)
+        self.__init__(method=self.method, installation_angle=installation_angle)
 
-    @gamma.deleter
-    def gamma(self):
-        self.__gamma = Airfoil.__gamma
+    @installation_angle.deleter
+    def installation_angle(self):
+        self.__installation_angle = Airfoil.__installation_angle
 
     @property
     def coordinates(self) -> tuple[tuple[float, float], ...]:
@@ -783,7 +785,6 @@ class Airfoil:
 
         return tuple((x, y) for x, y in zip(X, Y))
 
-    @timeit()
     def __calculate(self) -> tuple[tuple[float, float], ...]:
         self.validate()
 
@@ -813,7 +814,8 @@ class Airfoil:
         else:
             print(Fore.RED + f'No such method {self.method}! Use Airfoil.help' + Fore.RESET)
 
-        self.__coordinates = self.__transform(self.__coordinates0, angle=self.__gamma, inplace=False)  # поворот
+        self.__coordinates = self.__transform(self.__coordinates0, angle=self.__installation_angle,
+                                              inplace=False)  # поворот
         coordinates = array(self.__coordinates, dtype='float64').T
         x_min, x_max = coordinates[0].min(), coordinates[0].max()
         scale = abs(x_max - x_min)
@@ -858,18 +860,18 @@ class Airfoil:
 
         coordinates = self.upper_lower(coordinates)
 
-        Fu = interpolate.interp1d(*array(coordinates['upper']).T, kind=3, fill_value='extrapolate')
-        Fl = interpolate.interp1d(*array(coordinates['lower']).T, kind=3, fill_value='extrapolate')
+        fu = interpolate.interp1d(*array(coordinates['upper']).T, kind=3, fill_value='extrapolate')
+        fl = interpolate.interp1d(*array(coordinates['lower']).T, kind=3, fill_value='extrapolate')
 
         x0, x1 = 0, 1  # координаты x входной и выходной окружности
-        y0, y1 = Fu(x0), Fu(x1)  # координаты y входной и выходной окружности
+        y0, y1 = fu(x0), fu(x1)  # координаты y входной и выходной окружности
 
-        x0u = x0 + dl * tan2cos(derivative(Fu, x0, method='forward', dx=dl))
-        x1u = x1 - dl * tan2cos(derivative(Fu, x1, method='backward', dx=dl))
-        y0u, y1u = Fu(x0u), Fu(x1u)
-        x0l = x0 + dl * tan2cos(derivative(Fl, x0, method='forward', dx=dl))
-        x1l = x1 - dl * tan2cos(derivative(Fl, x1, method='backward', dx=dl))
-        y0l, y1l = Fl(x0l), Fl(x1l)
+        x0u = x0 + dl * tan2cos(derivative(fu, x0, method='forward', dx=dl))
+        x1u = x1 - dl * tan2cos(derivative(fu, x1, method='backward', dx=dl))
+        y0u, y1u = fu(x0u), fu(x1u)
+        x0l = x0 + dl * tan2cos(derivative(fl, x0, method='forward', dx=dl))
+        x1l = x1 - dl * tan2cos(derivative(fl, x1, method='backward', dx=dl))
+        y0l, y1l = fl(x0l), fl(x1l)
 
         A0u, B0u, C0u = coefficients_line(p1=(x0, y0), p2=(x0u, y0u))
         A0l, B0l, C0l = coefficients_line(p1=(x0, y0), p2=(x0l, y0l))
@@ -886,9 +888,9 @@ class Airfoil:
         # центры входной и выходной окружностей
         O_inlet = coordinate_intersection_lines((AA0u, -1, CC0u), (AA0l, -1, CC0l))
         O_outlet = coordinate_intersection_lines((AA1u, -1, CC1u), (AA1l, -1, CC1l))
-        if not (0.0 <= O_inlet[0] <= 0.5) or not (Fl(O_inlet[0]) <= O_inlet[1] <= Fu(O_inlet[0])):
+        if not (0.0 <= O_inlet[0] <= 0.5) or not (fl(O_inlet[0]) <= O_inlet[1] <= fu(O_inlet[0])):
             O_inlet = (nan, nan)
-        if not (0.5 <= O_outlet[0] <= 1.0) or not (Fl(O_outlet[0]) <= O_outlet[1] <= Fu(O_outlet[0])):
+        if not (0.5 <= O_outlet[0] <= 1.0) or not (fl(O_outlet[0]) <= O_outlet[1] <= fu(O_outlet[0])):
             O_outlet = (nan, nan)
 
         if not hasattr(self, '_Airfoil__relative_inlet_radius'): self.__relative_inlet_radius = abs(O_inlet[0] - x0)
@@ -915,7 +917,7 @@ class Airfoil:
         plt.plot([], label=f'discreteness = {self.__discreteness}')
         plt.plot([], label=f'relative_step = {self.__relative_step:.{Airfoil.__rnd}f} []')
         plt.plot([],
-                 label=f'gamma = {self.__gamma:.{Airfoil.__rnd}f} [rad] = {degrees(self.__gamma):.{Airfoil.__rnd}f} [deg]')
+                 label=f'gamma = {self.__installation_angle:.{Airfoil.__rnd}f} [rad] = {degrees(self.__installation_angle):.{Airfoil.__rnd}f} [deg]')
         for key, value in self.__dict__.items():
             if not key.startswith('_') and isinstance(value, (int, float, np.number)):
                 plt.plot([], label=f'{key} = {value:.{Airfoil.__rnd}f}')
