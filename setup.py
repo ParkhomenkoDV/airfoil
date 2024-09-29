@@ -1,8 +1,6 @@
 from setuptools import setup, find_packages
 import time
 
-name = 'airfoil'
-
 with open('README.md', 'rt', encoding='utf-8') as file:
     long_description = file.read()
 
@@ -11,7 +9,7 @@ with open('requirements.txt', 'rt') as file:
     print(install_requires)
 
 setup(
-    name=name,
+    name='airfoil',
     version=time.strftime('%Y.%m.%d.%H.%M.%S', time.localtime()),
     description='lib',
     long_description=long_description,

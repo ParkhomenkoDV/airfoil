@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from types import MappingProxyType  # неизменяемый словарь
 import warnings
 
@@ -14,7 +15,6 @@ from scipy import interpolate, integrate
 from scipy.optimize import fsolve
 import matplotlib.pyplot as plt
 
-from tools import export2, isiter
 from decorators import timeit, warns
 from mathematics import derivative, Axis
 from mathematics import coordinate_intersection_lines, coefficients_line, angle_between, distance, distance2line
@@ -383,8 +383,7 @@ class Airfoil:
         self.__properties = dict()  # относительные характеристики профиля
         self.__channel = tuple()  # дифузорность/конфузорность решетки
 
-        for attribute, value in attributes.items():
-            setattr(self, attribute, value)
+        for attribute, value in attributes.items(): setattr(self, attribute, value)
 
     def __str__(self) -> str:
         return self.__method
@@ -971,8 +970,7 @@ class Airfoil:
         plt.plot(x, y, ls='dashdot', color='orange')
 
         plt.tight_layout()
-        if savefig:
-            export2(plt, file_path='exports/airfoil', file_name='airfoil', file_extension='png', show_time=False)
+        if savefig: plt.savefig(f'pictures/airfoil_{time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())}.png')
         plt.show()
 
     @property
@@ -988,37 +986,37 @@ class Airfoil:
         self.__properties['radius_outlet'] = self.__relative_outlet_radius
 
         dct = self.upper_lower(self.__coordinates)
-        self.__Fu = interpolate.interp1d(*array(dct['upper']).T, kind=3, fill_value='extrapolate')
-        self.__Fl = interpolate.interp1d(*array(dct['lower']).T, kind=3, fill_value='extrapolate')
+        self.__fu = interpolate.interp1d(*array(dct['upper']).T, kind=3, fill_value='extrapolate')
+        self.__fl = interpolate.interp1d(*array(dct['lower']).T, kind=3, fill_value='extrapolate')
 
         self.__properties['area'] = integrate.dblquad(lambda _, __: 1,
-                                                      0, 1, lambda xu: self.__Fl(xu), lambda xl: self.__Fu(xl),
+                                                      0, 1, lambda xu: self.__fl(xu), lambda xl: self.__fu(xl),
                                                       epsrel=epsrel)[0]
         self.__properties['xc'], self.__properties['c'] = -1.0, 0.0
         self.__properties['xf'], self.__properties['f'] = -1.0, 0.0
         for x in linspace(0, 1, int(ceil(1 / epsrel))):
-            if self.__Fu(x) - self.__Fl(x) > self.__properties['c']:
-                self.__properties['xc'], self.__properties['c'] = x, self.__Fu(x) - self.__Fl(x)
-            if abs((self.__Fu(x) + self.__Fl(x)) / 2) > abs(self.__properties['f']):
-                self.__properties['xf'], self.__properties['f'] = x, (self.__Fu(x) + self.__Fl(x)) / 2
+            if self.__fu(x) - self.__fl(x) > self.__properties['c']:
+                self.__properties['xc'], self.__properties['c'] = x, self.__fu(x) - self.__fl(x)
+            if abs((self.__fu(x) + self.__fl(x)) / 2) > abs(self.__properties['f']):
+                self.__properties['xf'], self.__properties['f'] = x, (self.__fu(x) + self.__fl(x)) / 2
         self.__properties['Sx'] = integrate.dblquad(lambda y, _: y,
-                                                    0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                                                    0, 1, lambda xu: self.__fl(xu), lambda xd: self.__fu(xd),
                                                     epsrel=epsrel)[0]
         self.__properties['Sy'] = integrate.dblquad(lambda _, x: x,
-                                                    0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                                                    0, 1, lambda xu: self.__fl(xu), lambda xd: self.__fu(xd),
                                                     epsrel=epsrel)[0]
         self.__properties['x0'] = self.__properties['Sy'] / self.__properties['area'] \
             if self.__properties['area'] != 0 else inf
         self.__properties['y0'] = self.__properties['Sx'] / self.__properties['area'] \
             if self.__properties['area'] != 0 else inf
         self.__properties['Jx'] = integrate.dblquad(lambda y, _: y ** 2,
-                                                    0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                                                    0, 1, lambda xu: self.__fl(xu), lambda xd: self.__fu(xd),
                                                     epsrel=epsrel)[0]
         self.__properties['Jy'] = integrate.dblquad(lambda _, x: x ** 2,
-                                                    0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                                                    0, 1, lambda xu: self.__fl(xu), lambda xd: self.__fu(xd),
                                                     epsrel=epsrel)[0]
         self.__properties['Jxy'] = integrate.dblquad(lambda y, x: x * y,
-                                                     0, 1, lambda xu: self.__Fl(xu), lambda xd: self.__Fu(xd),
+                                                     0, 1, lambda xu: self.__fl(xu), lambda xd: self.__fu(xd),
                                                      epsrel=epsrel)[0]
         self.__properties['Jxc'] = self.__properties['Jx'] - self.__properties['area'] * self.__properties['y0'] ** 2
         self.__properties['Jyc'] = self.__properties['Jy'] - self.__properties['area'] * self.__properties['x0'] ** 2
@@ -1031,10 +1029,10 @@ class Airfoil:
         self.__properties['alpha'] = 0.5 * atan(-2 * self.__properties['Jxcyc'] /
                                                 (self.__properties['Jxc'] - self.__properties['Jyc'])) \
             if (self.__properties['Jxc'] - self.__properties['Jyc']) != 0 else -pi / 4
-        self.__properties['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__Fu, x) ** 2),
+        self.__properties['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__fu, x) ** 2),
                                                     0, 1,
                                                     epsrel=epsrel)[0]
-        self.__properties['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__Fl, x) ** 2),
+        self.__properties['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__fl, x) ** 2),
                                                     0, 1,
                                                     epsrel=epsrel)[0]
         return self.__properties
@@ -1045,7 +1043,7 @@ class Airfoil:
         """Диффузорность/конфузорность решетки"""
         if len(self.__channel) > 1: return self.__channel
 
-        Fu = lambda x: self.__Fu(x) - self.__relative_step
+        Fu = lambda x: self.__fu(x) - self.__relative_step
         step = self.properties['len_l'] / self.__discreteness  # шаг вдоль кривой
 
         xgmin, xgmax = 0 + self.__relative_inlet_radius, 1 - self.__relative_outlet_radius
@@ -1054,12 +1052,12 @@ class Airfoil:
 
         x = [xgmin]
         while True:
-            X = x[-1] + step * tan2cos(derivative(self.__Fl, x[-1]))
+            X = x[-1] + step * tan2cos(derivative(self.__fl, x[-1]))
             if X > xgmax: break
             x.append(X)
         x = array(x + [xgmax], dtype='float64')
 
-        Au, _, Cu = coefficients_line(func=self.__Fl, x0=x)
+        Au, _, Cu = coefficients_line(func=self.__fl, x0=x)
 
         def equations(vars, *args):
             """СНЛАУ"""
@@ -1076,14 +1074,14 @@ class Airfoil:
         xd, yd, d = list(), list(), list()
 
         warnings.filterwarnings('error')
-        for xu, yu, a_u, c_u in tqdm(zip(x, self.__Fl(x), Au, Cu), desc='Channel calculation', total=len(x)):
+        for xu, yu, a_u, c_u in tqdm(zip(x, self.__fl(x), Au, Cu), desc='Channel calculation', total=len(x)):
             try:
                 res = fsolve(equations, array((xu, yu, self.__relative_step / 2, xu)), args=(xu, yu, a_u, c_u))
             except Exception:
                 continue
 
             if all((xgmin <= res[0] <= xgmax,
-                    Fu(res[0]) < res[1] < self.__Fl(res[0]),  # y центра окружности лежит в канале
+                    Fu(res[0]) < res[1] < self.__fl(res[0]),  # y центра окружности лежит в канале
                     xgmin <= res[3] <= xgmax,
                     res[2] * 2 <= self.__relative_step)):
                 xd.append(res[0])
@@ -1146,26 +1144,16 @@ class Airfoil:
         plt.axis('equal')
         plt.show()
 
-    def to_dataframe(self):
+    def to_dataframe(self) -> pd.DataFrame:
         """Перевод координат в pandas.DataFrame"""
         return pd.DataFrame(self.__coordinates, columns=('x', 'y'))
 
-    def export(self, file_path='exports/airfoil', file_name='airfoil', file_extension='xlsx',
-               show_time=True, header=True):
-        export2(self.to_dataframe(),
-                file_path=file_path,
-                file_name=file_name,
-                file_extension=file_extension,
-                sheet_name='airfoil',
-                show_time=show_time,
-                header=header)
-        export2(pd.DataFrame(self.properties, index=[0]),
-                file_path=file_path,
-                file_name=file_name + '_properties',
-                file_extension=file_extension,
-                sheet_name=file_name + '_properties',
-                show_time=show_time,
-                header=header)
+    def export(self):
+        """Экспортирование координат и характеристик профиля"""
+        if not os.path.isdir('datas'): os.mkdir('datas')
+        ctime = time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
+        self.to_dataframe().to_excel(f'datas/airfoil_coordinates_{ctime}.xlsx', header=True)
+        pd.DataFrame(self.properties, index=[0]).to_excel(f'datas/airfoil_properties_{ctime}.xlsx', header=True)
 
 
 def test() -> None:

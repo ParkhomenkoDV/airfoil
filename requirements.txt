@@ -4,8 +4,8 @@ numpy
 scipy
 matplotlib
 pandas
+openpyxl
 
 decorators @ git+https://github.com/ParkhomenkoDV/decorators.git@master
-tools @ git+https://github.com/ParkhomenkoDV/tools.git@master
 mathematics @ git+https://github.com/ParkhomenkoDV/mathematics.git@master
 
