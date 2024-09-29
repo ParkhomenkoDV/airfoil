@@ -918,13 +918,13 @@ class Airfoil:
                  label=f'gamma = {self.__gamma:.{Airfoil.__rnd}f} [rad] = {degrees(self.__gamma):.{Airfoil.__rnd}f} [deg]')
         for key, value in self.__dict__.items():
             if not key.startswith('_') and isinstance(value, (int, float, np.number)):
-                plt.plot([], label=f'{key} = {value:.{Airfoil.rnd}f}')
+                plt.plot([], label=f'{key} = {value:.{Airfoil.__rnd}f}')
         plt.legend(loc='upper center')
 
         fg.add_subplot(gs[1, 0])
         plt.title('Properties')
         plt.axis('off')
-        for key, value in self.properties.items(): plt.plot([], label=f'{key} = {value:.{Airfoil.rnd}f}')
+        for key, value in self.properties.items(): plt.plot([], label=f'{key} = {value:.{Airfoil.__rnd}f}')
         plt.legend(loc='upper center')
 
         fg.add_subplot(gs[0, 1])
