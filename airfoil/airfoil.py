@@ -915,7 +915,7 @@ class Airfoil:
         plt.plot([], label=f'discreteness = {self.__discreteness}')
         plt.plot([], label=f'relative_step = {self.__relative_step:.{Airfoil.__rnd}f} []')
         plt.plot([],
-                 label=f'gamma = {self.__gamma:.{Airfoil.rnd}f} [rad] = {degrees(self.__gamma):.{Airfoil.__rnd}f} [deg]')
+                 label=f'gamma = {self.__gamma:.{Airfoil.__rnd}f} [rad] = {degrees(self.__gamma):.{Airfoil.__rnd}f} [deg]')
         for key, value in self.__dict__.items():
             if not key.startswith('_') and isinstance(value, (int, float, np.number)):
                 plt.plot([], label=f'{key} = {value:.{Airfoil.rnd}f}')
