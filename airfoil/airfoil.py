@@ -1130,7 +1130,7 @@ class Airfoil:
             height = y.max() - y.min()
             ylim = (y.min() - padding * height, y.max() + padding * height)
 
-        X, Y = np.meshgrid(linspace(*xlim, self.__discreteness ** 2), linspace(*ylim, self.__discreteness ** 2))
+        X, Y = np.meshgrid(linspace(*xlim, self.__discreteness * 2), linspace(*ylim, self.__discreteness ** 2))
         ux, uy = u((X, Y), vortexs, bounds=(vx, vy))
         '''for i, ux_ in enumerate(ux):
             for j, uy_ in enumerate(uy):
