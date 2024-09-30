@@ -622,7 +622,7 @@ class Airfoil:
 
         scale = abs(X.max() - X.min())
 
-        return self.__transform(tuple(((x, y) for x, y in zip(X, Y))), x0=X.min(), scale=(1 / scale))
+        return self.transform(tuple(((x, y) for x, y in zip(X, Y))), x0=X.min(), scale=(1 / scale))
 
     def __mynk(self) -> tuple[tuple[float, float], ...]:
 
@@ -638,9 +638,9 @@ class Airfoil:
 
         X, Y = np.hstack((x[-1:idx:-1], x[idx::-1], x[1::])), np.hstack((yu[-1:idx:-1], yu[idx::-1], yl[1::]))
 
-        coordinates = self.__transform(tuple(((x, y) for x, y in zip(X, Y))), angle=angle)  # поворот
+        coordinates = self.transform(tuple(((x, y) for x, y in zip(X, Y))), angle=angle)  # поворот
         x, _ = array(coordinates).T
-        return self.__transform(coordinates, x0=x.min(), scale=(1 / (x.max() - x.min())))  # нормализация
+        return self.transform(coordinates, x0=x.min(), scale=(1 / (x.max() - x.min())))  # нормализация
 
     def __parsec(self) -> tuple[tuple[float, float], ...]:
         """
@@ -704,9 +704,9 @@ class Airfoil:
         X, Y = bernstein_curve(self.points, N=self.__discreteness).T
         xargmin, xargmax = np.argmin(X), np.argmax(X)
         angle = atan((Y[xargmax] - Y[xargmin]) / (X[xargmax] - X[xargmin]))  # угол поворота
-        coordinates = self.__transform(tuple(((x, y) for x, y in zip(X, Y))), angle=angle)  # поворот
+        coordinates = self.transform(tuple(((x, y) for x, y in zip(X, Y))), angle=angle)  # поворот
         x, y = array(coordinates).T
-        return self.__transform(coordinates, x0=x.min(), y0=y[0], scale=(1 / (x.max() - x.min())))  # нормализация
+        return self.transform(coordinates, x0=x.min(), y0=y[0], scale=(1 / (x.max() - x.min())))  # нормализация
 
     def __manual(self) -> tuple[tuple[float, float], ...]:
         xu, yu = array(self.upper, dtype='float64').T
@@ -814,27 +814,23 @@ class Airfoil:
         else:
             print(Fore.RED + f'No such method {self.method}! Use Airfoil.help' + Fore.RESET)
 
-        self.__coordinates = self.__transform(self.__coordinates0, angle=self.__installation_angle,
-                                              inplace=False)  # поворот
+        self.__coordinates = self.transform(self.__coordinates0, angle=self.__installation_angle)  # поворот
         coordinates = array(self.__coordinates, dtype='float64').T
         x_min, x_max = coordinates[0].min(), coordinates[0].max()
         scale = abs(x_max - x_min)
-        self.__coordinates = self.__transform(self.__coordinates, x0=x_min, scale=(1 / scale), inplace=False)  # нормал
+        self.__coordinates = self.transform(self.__coordinates, x0=x_min, scale=(1 / scale))  # нормал
         return self.__coordinates
 
-    def __transform(self, coordinates: tuple[tuple[float, float], ...],
-                    x0=0.0, y0=0.0, angle=0.0, scale=1.0, inplace: bool = False) -> tuple[tuple[float, float], ...]:
+    def transform(self, coordinates: tuple[tuple[float, float], ...],
+                  x0=0.0, y0=0.0, angle=0.0, scale=1.0) -> tuple[tuple[float, float], ...]:
         """Перенос-поворот кривых спинки и корыта профиля"""
 
         new_coordinates = list()
         for x, y in coordinates:
             point = Axis.transform(x, y, x0=x0, y0=y0, angle=angle, scale=scale)
             new_coordinates.append((float(point[0]), float(point[1])))
-        new_coordinates = tuple(new_coordinates)
 
-        if inplace: self.__coordinates = new_coordinates
-
-        return new_coordinates
+        return tuple(new_coordinates)
 
     @staticmethod
     def upper_lower(coordinates: tuple[tuple[float, float], ...]) -> dict[str:tuple[tuple[float, float], ...]]:
