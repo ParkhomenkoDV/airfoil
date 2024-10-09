@@ -1026,11 +1026,9 @@ class Airfoil:
                                                 (self.__properties['Jxc'] - self.__properties['Jyc'])) \
             if (self.__properties['Jxc'] - self.__properties['Jyc']) != 0 else -pi / 4
         self.__properties['len_u'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__fu, x) ** 2),
-                                                    0, 1,
-                                                    epsrel=epsrel)[0]
+                                                    0, 1, epsrel=epsrel, limit=int(1 / epsrel))[0]
         self.__properties['len_l'] = integrate.quad(lambda x: sqrt(1 + derivative(self.__fl, x) ** 2),
-                                                    0, 1,
-                                                    epsrel=epsrel)[0]
+                                                    0, 1, epsrel=epsrel, limit=int(1 / epsrel))[0]
         return self.__properties
 
     @property
