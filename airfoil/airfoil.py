@@ -977,9 +977,9 @@ class Airfoil:
         if self.__properties: return self.__properties
 
         if not hasattr(self, '_Airfoil__relative_inlet_radius'):
-            self.__relative_inlet_radius = self.__find_circles(self.coordinates)['inlet']['radius']
+            self.__relative_inlet_radius = 0  # self.__find_circles(self.coordinates)['inlet']['radius']
         if not hasattr(self, '_Airfoil__relative_outlet_radius'):
-            self.__relative_outlet_radius = self.__find_circles(self.coordinates)['outlet']['radius']
+            self.__relative_outlet_radius = 0  # self.__find_circles(self.coordinates)['outlet']['radius']
         self.__properties['radius_inlet'] = self.__relative_inlet_radius
         self.__properties['radius_outlet'] = self.__relative_outlet_radius
 
