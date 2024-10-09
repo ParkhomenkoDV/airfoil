@@ -981,7 +981,7 @@ class Airfoil:
         self.__properties['radius_inlet'] = self.__relative_inlet_radius
         self.__properties['radius_outlet'] = self.__relative_outlet_radius
 
-        dct = self.upper_lower(self.__coordinates)
+        dct = self.upper_lower(self.coordinates)
         self.__fu = interpolate.interp1d(*array(dct['upper']).T, kind=3, fill_value='extrapolate')
         self.__fl = interpolate.interp1d(*array(dct['lower']).T, kind=3, fill_value='extrapolate')
 
