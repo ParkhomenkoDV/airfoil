@@ -708,8 +708,7 @@ class Airfoil:
         xmin, xmax = min(xu.min(), xl.min()), max(xu.max(), xl.max())
         scale = xmax - xmin
 
-        xl = (xl - xmin) / scale
-        xu = (xu - xmin) / scale
+        xl, xu = (xl - xmin) / scale, (xu - xmin) / scale
 
         fu, fl = interpolate.interp1d(xu, yu, kind=self.deg), interpolate.interp1d(xl, yl, kind=self.deg)
         X = linspace(0, 1, self.__discreteness, endpoint=True)
