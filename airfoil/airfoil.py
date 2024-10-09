@@ -171,7 +171,8 @@ VOCABULARY = MappingProxyType({
                    else 'all(isinstance(x, (int, float, np.number)) and isinstance(y, (int, float, np.number))'
                         'for x, y in upper)',
                    lambda upper:
-                   '' if all(0 <= x <= 1 for x, _ in upper) else 'all(0 <= x <= 1 for x, _ in upper)',), },
+                   '' if tuple(upper) == tuple(sorted(upper, key=lambda point: point[0], reverse=False))
+                   else 'tuple(upper) == tuple(sorted(upper, key=lambda point: point[0], reverse=False))',), },
     'lower': {
         'description': 'координаты корыта',
         'unit': '[]',
@@ -187,7 +188,8 @@ VOCABULARY = MappingProxyType({
                    else 'all(isinstance(x, (int, float, np.number)) and isinstance(y, (int, float, np.number))'
                         'for x, y in lower)',
                    lambda lower:
-                   '' if all(0 <= x <= 1 for x, _ in lower) else 'all(0 <= x <= 1 for x, _ in lower)',), },
+                   '' if tuple(lower) == tuple(sorted(lower, key=lambda point: point[0], reverse=False))
+                   else 'tuple(lower) == tuple(sorted(lower, key=lambda point: point[0], reverse=False))',), },
     'deg': {
         'description': 'степень интерполяции полинома',
         'unit': '[]',
@@ -351,15 +353,6 @@ class Airfoil:
         gamma = kwargs.pop('gamma', None)
         if gamma is not None:
             assert isinstance(gamma, (float, int, np.number)) and -pi / 2 <= gamma <= pi / 2
-
-        def validate_points(points: tuple | list | np.ndarray) -> None:
-            """Проверка двумерного массива точек"""
-            assert isinstance(points, (tuple, list, np.ndarray))  # тип массива координат
-            assert len(points) >= 3  # количество координат
-            assert all(isinstance(coord, (tuple, list, np.ndarray)) for coord in points)  # тип координаты
-            assert all(len(coord) == 2 for coord in points)  # проверка длин элементов итератора
-            assert all(isinstance(x, (int, float, np.number)) and isinstance(y, (int, float, np.number))
-                       for x, y in points)  # проверка типов элементов
 
         if hasattr(self, '_Airfoil__method'):
             for attr in Airfoil.__methods[self.__method]['attributes']:
@@ -711,6 +704,12 @@ class Airfoil:
     def __manual(self) -> tuple[tuple[float, float], ...]:
         xu, yu = array(self.upper, dtype='float64').T
         xl, yl = array(self.lower, dtype='float64').T
+
+        xmin, xmax = min(xu.min(), xl.min()), max(xu.max(), xl.max())
+        scale = xmax - xmin
+
+        xl = (xl - xmin) / scale
+        xu = (xu - xmin) / scale
 
         fu, fl = interpolate.interp1d(xu, yu, kind=self.deg), interpolate.interp1d(xl, yl, kind=self.deg)
         X = linspace(0, 1, self.__discreteness, endpoint=True)
