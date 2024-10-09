@@ -996,7 +996,7 @@ class Airfoil:
         delta_f_2 = delta_f / 2
         argmax_c, argmax_f = np.argmax(delta_f), np.argmax(np.abs(delta_f_2))
         self.__properties['xc'], self.__properties['c'] = x[argmax_c], delta_f[argmax_c]
-        self.__properties['xf'], self.__properties['f'] = x[argmax_f], delta_f_2[argmax_f]
+        self.__properties['xf'], self.__properties['f'] = x[argmax_f], delta_f_2[argmax_f]  # TODO неверно!
         self.__properties['Sx'] = integrate.dblquad(lambda y, _: y,
                                                     0, 1, lambda xu: self.__fl(xu), lambda xd: self.__fu(xd),
                                                     epsrel=epsrel)[0]
