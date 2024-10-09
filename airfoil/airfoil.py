@@ -990,13 +990,13 @@ class Airfoil:
         self.__properties['area'] = integrate.dblquad(lambda _, __: 1,
                                                       0, 1, lambda xu: self.__fl(xu), lambda xl: self.__fu(xl),
                                                       epsrel=epsrel)[0]
-        self.__properties['xc'], self.__properties['c'] = -1.0, 0.0
-        self.__properties['xf'], self.__properties['f'] = -1.0, 0.0
-        for x in linspace(0, 1, int(ceil(1 / epsrel))):
-            if self.__fu(x) - self.__fl(x) > self.__properties['c']:
-                self.__properties['xc'], self.__properties['c'] = x, self.__fu(x) - self.__fl(x)
-            if abs((self.__fu(x) + self.__fl(x)) / 2) > abs(self.__properties['f']):
-                self.__properties['xf'], self.__properties['f'] = x, (self.__fu(x) + self.__fl(x)) / 2
+        x = linspace(0, 1, int(ceil(1 / epsrel)))
+        fu, fl = self.__fu(x), self.__fl(x)
+        delta_f = fu - fl
+        delta_f_2 = delta_f / 2
+        argmax_c, argmax_f = np.argmax(delta_f), np.argmax(np.abs(delta_f_2))
+        self.__properties['xc'], self.__properties['c'] = x[argmax_c], delta_f[argmax_c]
+        self.__properties['xf'], self.__properties['f'] = x[argmax_f], delta_f_2[argmax_f]
         self.__properties['Sx'] = integrate.dblquad(lambda y, _: y,
                                                     0, 1, lambda xu: self.__fl(xu), lambda xd: self.__fu(xd),
                                                     epsrel=epsrel)[0]
