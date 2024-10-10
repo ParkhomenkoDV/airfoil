@@ -34,6 +34,29 @@ REFERENCES = MappingProxyType({
 
 # словарь терминов их описания, единицы измерения и граничные значения
 VOCABULARY = MappingProxyType({
+    'coordinates': {
+        'description': 'координаты профиля считая от выходной кромки против часовой стрелки',
+        'unit': '[]',
+        'type': (tuple, list, np.ndarray),
+        'assert': (lambda coordinates: '' if 3 <= len(coordinates) else '3 <= len(coordinates)',
+                   lambda coordinates:
+                   '' if all(isinstance(coordinate, (tuple, list, np.ndarray)) for coordinate in coordinates)
+                   else 'all(isinstance(coordinate, (tuple, list, np.ndarray)) for coordinate in coordinates)',
+                   lambda coordinates: '' if all(len(coordinate) == 2 for coordinate in coordinates)
+                   else 'all(len(coordinate) == 2 for coordinate in coordinates)',
+                   lambda coordinates:
+                   '' if all(isinstance(x, (int, float, np.number)) and isinstance(y, (int, float, np.number))
+                             for x, y in coordinates)
+                   else 'all(isinstance(x, (int, float, np.number)) and isinstance(y, (int, float, np.number))'
+                        'for x, y in coordinates)',
+                   lambda coordinates:
+                   '' if tuple(coordinates[:np.argmin(array(coordinates).T[0])]) ==
+                         tuple(sorted(coordinates[:np.argmin(array(coordinates).T[0])],
+                                      key=lambda point: point[0], reverse=True)) and
+                         tuple(coordinates[np.argmin(array(coordinates).T[0]):]) ==
+                         tuple(sorted(coordinates[np.argmin(array(coordinates).T[0]):],
+                                      key=lambda point: point[0], reverse=False))
+                   else 'ascending error',), },
     'rotation_angle': {
         'description': 'угол поворота потока',
         'unit': '[рад]',
@@ -397,10 +420,6 @@ class Airfoil:
         self.validate(method=value)
         self.__init__(value)  # снос предыдущих расчетов для нового метода
 
-    @method.deleter
-    def method(self) -> None:
-        raise
-
     @property
     def discreteness(self) -> int:
         return self.__discreteness
@@ -409,10 +428,6 @@ class Airfoil:
     def discreteness(self, value) -> None:
         self.validate(discreteness=value)
         self.__init__(method=self.method, discreteness=value)
-
-    @discreteness.deleter
-    def discreteness(self) -> None:
-        raise
 
     @property
     def relative_step(self) -> float | int | np.number:
@@ -450,6 +465,14 @@ class Airfoil:
     def input(self):
         """Динамический ввод с защитой от дураков"""
         pass
+
+    @classmethod
+    def load(cls, coordinates) -> object:
+        """Загрузка координат профиля"""
+        for ass in VOCABULARY['coordinates']["assert"]: assert not ass(coordinates), ass(coordinates)
+        upper = 0
+        lower = 0
+        return Airfoil('MANUAL', upper=upper, lower=lower, deg=1)
 
     def __bmstu(self) -> tuple[tuple[float, float], ...]:
         airfoil_rotation_angle = pi - self.rotation_angle  # угол поворота профиля
@@ -812,6 +835,8 @@ class Airfoil:
         else:
             print(Fore.RED + f'No such method {self.method}! Use Airfoil.help' + Fore.RESET)
 
+        self.__chord = 1
+
         self.__coordinates = self.transform(self.__coordinates0, angle=self.__installation_angle)  # поворот
         coordinates = array(self.__coordinates, dtype='float64').T
         x_min, x_max = coordinates[0].min(), coordinates[0].max()
@@ -822,12 +847,10 @@ class Airfoil:
     def transform(self, coordinates: tuple[tuple[float, float], ...],
                   x0=0.0, y0=0.0, angle=0.0, scale=1.0) -> tuple[tuple[float, float], ...]:
         """Перенос-поворот кривых спинки и корыта профиля"""
-
         new_coordinates = list()
         for x, y in coordinates:
             point = Axis.transform(x, y, x0=x0, y0=y0, angle=angle, scale=scale)
             new_coordinates.append((float(point[0]), float(point[1])))
-
         return tuple(new_coordinates)
 
     @staticmethod
@@ -975,9 +998,9 @@ class Airfoil:
         if self.__properties: return self.__properties
 
         if not hasattr(self, '_Airfoil__relative_inlet_radius'):
-            self.__relative_inlet_radius = 0  # self.__find_circles(self.coordinates)['inlet']['radius']
+            self.__relative_inlet_radius = 0  # TODO self.__find_circles(self.coordinates)['inlet']['radius']
         if not hasattr(self, '_Airfoil__relative_outlet_radius'):
-            self.__relative_outlet_radius = 0  # self.__find_circles(self.coordinates)['outlet']['radius']
+            self.__relative_outlet_radius = 0  # TODO self.__find_circles(self.coordinates)['outlet']['radius']
         self.__properties['radius_inlet'] = self.__relative_inlet_radius
         self.__properties['radius_outlet'] = self.__relative_outlet_radius
 
